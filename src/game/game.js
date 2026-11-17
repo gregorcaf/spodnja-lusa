@@ -16,6 +16,7 @@
 //   'campaign'    { opponent }    the election campaign started
 //   'election'    result          votes are counted (game is paused)
 //   'gameover'    epilogue        the mayor lost for good
+//   'mapevent'    { phase: 'start' | 'end', ... }   a live event on the map started or finished
 //   'config'      –               CONFIG was edited (dev panel)
 
 import { CONFIG } from '../config.js';
@@ -41,6 +42,7 @@ import {
 } from './elections.js';
 import { UNREST } from './texts.js';
 import { giveEnvelope } from './envelopes.js';
+import { spawnMapEvent, advanceMapEvent, clickMapEvent, describeMapEvent, nextMapEventDelay } from './mapEvents.js';
 import { randFloat } from './util.js';
 
 export const SPEEDS = [0, 1, 2, 3];
@@ -69,6 +71,10 @@ export function createState() {
     dilemmaTimer: randFloat(0.4, 1), // game-months until the next card (first one comes early)
     usedDilemmas: [],
     yearlyDone: {}, // yearly event id -> year it was shown
+
+    // Live map events
+    mapEvent: null,
+    mapEventTimer: randFloat(0.3, 0.6), // the first one comes early
     modifiers: [], // lasting effects: { key, label, months, monthlyBudget?, blockLever? }
     scheduled: [], // delayed consequences
 
@@ -213,6 +219,36 @@ export class Game extends Emitter {
     this.emit('state');
   }
 
+  // --- Live map events -----------------------------------------------------
+
+  describeMapEvent() {
+    return describeMapEvent(this.state);
+  }
+
+  /** The mayor clicked the event on the map. */
+  clickMapEvent() {
+    const res = clickMapEvent(this.state);
+    if (res) this.finishMapEvent(res);
+    return res;
+  }
+
+  finishMapEvent(res) {
+    for (const t of res.tiles) this.emit('tile', t);
+    if (res.tiles.length) this.afterTilesChanged();
+    this.emit('news', res.news);
+    this.refreshUnrest();
+    this.emit('mapevent', { phase: 'end', clicked: res.clicked, news: res.news, type: res.event.type });
+    this.emit('state');
+  }
+
+  /** Test/debug helper: start a specific event now. */
+  startMapEvent(type) {
+    if (this.state.mapEvent) return null;
+    const ev = spawnMapEvent(this.state, type);
+    if (ev) this.emit('mapevent', { phase: 'start', info: describeMapEvent(this.state), type });
+    return ev;
+  }
+
   // --- Wishes --------------------------------------------------------------
 
   payWish(uid, fromSecret = false) {
@@ -346,6 +382,18 @@ export class Game extends Emitter {
         s.dilemmaTimer = randFloat(CONFIG.dilemmas.minMonths, CONFIG.dilemmas.maxMonths);
         s.dilemma = drawDilemma(s);
         if (s.dilemma) this.emit('dilemma', this.presentDilemma());
+      }
+
+      // Live events on the map: one at a time.
+      if (s.mapEvent) {
+        const res = advanceMapEvent(s, months);
+        if (res) this.finishMapEvent(res);
+      } else {
+        s.mapEventTimer -= months;
+        if (s.mapEventTimer <= 0 && !this.blocked) {
+          s.mapEventTimer = nextMapEventDelay();
+          if (spawnMapEvent(s)) this.emit('mapevent', { phase: 'start', info: describeMapEvent(s), type: s.mapEvent.type });
+        }
       }
 
       // Now and then somebody wants something.

@@ -30,6 +30,7 @@ src/
     elections.js   campaign, vote, recount, epilogue
     envelopes.js   loyalty envelopes (secret account)
     seasons.js     seasons from the month
+    mapEvents.js   live map events (bear, tractor, wedding, fire, journalist)
     save.js        save/load (JSON snapshot of the state)
     content/       dilemma cards and wishes (Slovenian text)
     stats.js       mood, support, averages, income/expenses
@@ -43,13 +44,14 @@ src/
     preview.js     ghost model for construction preview
     overlay.js     envy map
     effects.js     snow, party lights and notes
-    labels.js      HTML district labels and thought bubbles
+    labels.js      HTML district labels, thought bubbles, event marker
+    mapEvents.js   animated actors for live map events
   audio/          everything synthesised with Web Audio (no audio files)
     music.js       original polka (minor key during riots)
     sfx.js         sound effects and protest/riot ambience
     context.js     shared audio context
   ui/              HTML interface (top bar, sidebar, ticker, popup, report, dev panel)
-tests/             node --test suites (rules, levers, unrest/elections, content, save/seasons, balance)
+tests/             node --test suites (rules, levers, unrest/elections, content, save/seasons, map events, balance)
 ```
 
 In dev mode `window.__obcina` exposes `{ game, view }` for debugging.
