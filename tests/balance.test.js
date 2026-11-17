@@ -14,6 +14,8 @@ function playTerm(seed, active) {
   let result = null;
   game.on('dilemma', () => game.chooseDilemma(Math.floor(Math.random() * 2)));
   game.on('election', (e) => (result = e));
+  // An active mayor reacts to live events on the map; a passive one lets them run out.
+  if (active) game.on('mapevent', (e) => e.phase === 'start' && game.clickMapEvent());
   let last = -1;
   while (!result && s.monthIndex < 49) {
     game.tick(1);

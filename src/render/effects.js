@@ -187,10 +187,28 @@ export class Effects {
     }
   }
 
+  /** The house of a fire event burns (with light, flames and smoke) until the event ends. */
+  syncEventFire(state) {
+    const ev = state.mapEvent;
+    const want = ev && ev.type === 'fire' ? ev.tile : null;
+    const have = this.eventFire;
+    if (have && (!want || have.x !== want.x || have.y !== want.y)) {
+      this.scene.remove(have.light);
+      this.eventFire = null;
+    }
+    if (want && !this.eventFire) {
+      const light = new THREE.PointLight('#ff7a2a', 3, 3);
+      tileToWorld(want.x, want.y, light.position).y = 0.8;
+      this.scene.add(light);
+      this.eventFire = { x: want.x, y: want.y, light, timer: 0 };
+    }
+  }
+
   update(dt, time, dancers, state) {
     this.syncRiot(state);
+    this.syncEventFire(state);
     this.factorySmoke(dt, state);
-    for (const f of this.fires) {
+    for (const f of this.eventFire ? [...this.fires, this.eventFire] : this.fires) {
       f.light.intensity = 2 + Math.sin(time * 17 + f.x) * 0.6 + Math.random() * 0.5;
       f.timer -= dt;
       if (f.timer <= 0) {

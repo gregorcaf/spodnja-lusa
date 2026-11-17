@@ -121,6 +121,20 @@ createWishPanel(document.getElementById('wish-panel'), game, {
   onPay: payWish,
   onSelect: (id, e) => popup.open(id, e.clientX, e.clientY),
 });
+// Live map events: announce, then report how it ended.
+const EVENT_SOUNDS = { bear: 'growl', tractor: 'tractor', wedding: 'fanfare', fire: 'fire', journalist: 'camera' };
+game.on('mapevent', (e) => {
+  if (e.phase === 'start') {
+    toast(`${e.info.icon} ${e.info.announce}`, 'info', 5000);
+    sfx.play('alert');
+    setTimeout(() => sfx.play(EVENT_SOUNDS[e.type]), 250);
+  } else {
+    toast(e.news, e.clicked ? 'good' : 'error', 5500);
+    sfx.play(e.clicked ? 'wish' : 'error');
+    hideTooltip('map');
+  }
+});
+
 game.on('wishes', ({ fulfilled } = {}) => {
   if (fulfilled?.length) sfx.play('wish');
   fulfilled?.forEach((n) => toast(n, 'good', 4500));
@@ -171,6 +185,19 @@ view.onHover = (h) => {
 
 function renderHover() {
   const h = hover;
+  // A live event under the mouse: say what clicking does and what happens if ignored.
+  if (h?.mapEvent && game.state.mapEvent) {
+    const info = game.describeMapEvent();
+    view.preview.hide();
+    showTooltip(
+      `<div class="tt-title">${info.icon} ${escapeHtml(info.name)} · klikni!</div>
+       <div class="tt-good">${escapeHtml(info.action)}</div>
+       <div class="tt-muted">${escapeHtml(info.ignoreHint)}</div>`,
+      h.clientX,
+      h.clientY,
+    );
+    return;
+  }
   if (!h || (!h.tile && h.citizenId == null)) {
     view.preview.hide();
     hideTooltip('map');
@@ -207,7 +234,12 @@ function renderHover() {
 // ---------------------------------------------------------------------------
 // Clicks: build with the selected tool, otherwise inspect citizens
 
-view.onClick = ({ tile, citizenId, clientX, clientY }) => {
+view.onClick = ({ tile, citizenId, mapEvent, clientX, clientY }) => {
+  // Live events take priority over everything else, even an active build tool.
+  if (mapEvent && game.state.mapEvent) {
+    game.clickMapEvent();
+    return;
+  }
   if (tool) {
     if (!tile) return;
     const res = game.act(tool, tile.x, tile.y);
@@ -286,8 +318,11 @@ requestAnimationFrame(frame);
 // ---------------------------------------------------------------------------
 // Saving: automatically every month and whenever the tab is hidden or closed.
 
+// Set when the player starts over, so the reload doesn't save the old game again on its way out.
+let discardOnExit = false;
+
 function autosave() {
-  if (storage && !game.state.over) saveGame(storage, game.state);
+  if (storage && !game.state.over && !discardOnExit) saveGame(storage, game.state);
 }
 game.on('month', autosave);
 document.addEventListener('visibilitychange', () => document.hidden && autosave());
@@ -313,6 +348,7 @@ if (game.state === saved) {
     else if (game.state.election) openElection(game.state.election);
   });
   el.querySelector('#new-game-start').addEventListener('click', () => {
+    discardOnExit = true;
     if (storage) clearSave(storage);
     window.location.reload();
   });

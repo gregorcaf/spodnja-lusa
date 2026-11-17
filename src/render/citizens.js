@@ -157,6 +157,12 @@ export class CitizenLayer {
       let w = districtOf(n.x, n.y) === c.home ? CONFIG.citizens.homeBias : 1 - CONFIG.citizens.homeBias;
       w = Math.max(w, 0.02);
       if (back) w *= 0.08; // avoid U-turns unless it's a dead end
+      if (f.fleeing && this.threat) {
+        // Run from the bear: strongly prefer tiles that lead away from it.
+        const p = tileToWorld(n.x, n.y);
+        const away = Math.hypot(p.x - this.threat.x, p.z - this.threat.z) - Math.hypot(f.pos.x - this.threat.x, f.pos.z - this.threat.z);
+        w = away > 0 ? 10 : 0.01;
+      }
       options.push({ n, w });
     }
     if (!options.length) {
@@ -227,7 +233,9 @@ export class CitizenLayer {
     return this.figures.filter((f) => f.mode === 'protest' && !f.path.length).map((f) => f.id);
   }
 
-  update(dt, hoveredId = null, selectedId = null) {
+  /** @param threat world position citizens run away from (the bear), or null */
+  update(dt, hoveredId = null, selectedId = null, threat = null) {
+    this.threat = threat;
     this.time += dt;
     const state = this.game.state;
     // Deep snow from the lever slows people down a lot, ordinary winter a little.
@@ -237,6 +245,10 @@ export class CitizenLayer {
     const rioting = state.unrest === 'riot';
     for (const f of this.figures) {
       const c = state.citizens[f.id];
+      // Within reach of the bear: drop everything and run.
+      const near = threat && f.mode === 'wander' && Math.hypot(f.pos.x - threat.x, f.pos.z - threat.z) < 3;
+      if (near && !f.fleeing) f.path.length = Math.min(f.path.length, 1);
+      f.fleeing = !!near;
       const want = this.desiredMode(c, state);
       if (want !== f.mode) this.setMode(f, want, state);
 
@@ -256,7 +268,8 @@ export class CitizenLayer {
         const dz = target.z - f.pos.z;
         const dist = Math.hypot(dx, dz);
         // Partygoers and protesters hurry a bit.
-        const step = speed * f.speedJitter * (f.mode === 'wander' ? 1 : 1.6) * dt;
+        const hurry = f.fleeing ? 2.4 : f.mode === 'wander' ? 1 : 1.6;
+        const step = speed * f.speedJitter * hurry * dt;
         if (dist <= step) {
           f.pos.set(target.x, 0, target.z);
           f.path.shift();

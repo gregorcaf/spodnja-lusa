@@ -104,6 +104,13 @@ export const DEFAULT_CONFIG = {
     bubbleDuration: 4,
   },
 
+  // Live events on the map (bear, tractor, wedding, fire, journalist).
+  mapEvents: {
+    minMonths: 0.8, // game-months between events
+    maxMonths: 1.4,
+    durationScale: 1, // how long an event waits for a click (1 = default per event, ~12–18 s at 1×)
+  },
+
   dilemmas: {
     minMonths: 1, // game-months between dilemma cards
     maxMonths: 2,

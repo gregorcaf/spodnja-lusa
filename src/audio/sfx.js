@@ -253,4 +253,23 @@ const EFFECTS = {
     for (let i = 0; i < 12; i++) s.burst({ t: Math.random() * 1, dur: 0.03, gain: 0.15, type: 'highpass', hz: 2500 });
   },
   click: (s) => s.tone({ type: 'triangle', midi: 84, dur: 0.05, gain: 0.08 }),
+  // A live event appears: two quick attention beeps.
+  alert: (s) => {
+    s.tone({ type: 'square', midi: 81, dur: 0.09, gain: 0.06 });
+    s.tone({ type: 'square', midi: 86, t: 0.12, dur: 0.12, gain: 0.06 });
+  },
+  // Bear: a low growl.
+  growl: (s) => {
+    s.burst({ dur: 0.9, gain: 0.35, type: 'lowpass', hz: 220, q: 4 });
+    s.tone({ type: 'sawtooth', hz: 95, dur: 0.9, gain: 0.12, glideTo: 60 });
+  },
+  // Tractor: an old diesel going putt-putt.
+  tractor: (s) => {
+    for (let i = 0; i < 8; i++) s.tone({ type: 'square', hz: 55, t: i * 0.09, dur: 0.07, gain: 0.1 });
+  },
+  // Journalist: camera shutter.
+  camera: (s) => {
+    s.burst({ dur: 0.04, gain: 0.35, type: 'highpass', hz: 2000 });
+    s.burst({ t: 0.08, dur: 0.05, gain: 0.25, type: 'highpass', hz: 1500 });
+  },
 };

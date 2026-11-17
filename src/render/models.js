@@ -313,3 +313,85 @@ function createSign() {
   g.traverse((o) => (o.castShadow = false));
   return g;
 }
+
+// ---------------------------------------------------------------------------
+// Actors for live map events. All face +x (the direction they walk in).
+
+const EV = {
+  bear: material('#5b3a22'),
+  bearDark: material('#3e2716'),
+  tractor: material('#3f8f3a'),
+  tractorDark: material('#2b2b2b'),
+  tractorRim: material('#e0b52b'),
+  beacon: new THREE.MeshBasicMaterial({ color: '#ff9a1a' }),
+  dress: material('#ffffff'),
+  suit: material('#222428'),
+  accordion: material('#c4302b'),
+  camera: material('#1c1c1c'),
+  jacket: material('#2f6db5'),
+  guest: ['#e4a1c4', '#8fbf6a', '#e6c24a', '#7fa8d8'].map((c) => material(c)),
+};
+
+export function createBear() {
+  const g = new THREE.Group();
+  g.add(box(0.48, 0.26, 0.28, EV.bear, 0, 0.1, 0));
+  g.add(box(0.2, 0.2, 0.2, EV.bear, 0.3, 0.2, 0));
+  g.add(box(0.08, 0.07, 0.1, EV.bearDark, 0.43, 0.24, 0)); // snout
+  g.add(box(0.05, 0.06, 0.05, EV.bearDark, 0.28, 0.4, -0.07));
+  g.add(box(0.05, 0.06, 0.05, EV.bearDark, 0.28, 0.4, 0.07));
+  for (const [x, z] of [[0.16, 0.09], [0.16, -0.09], [-0.16, 0.09], [-0.16, -0.09]]) g.add(box(0.08, 0.12, 0.08, EV.bearDark, x, 0, z));
+  return g;
+}
+
+export function createTractor() {
+  const g = new THREE.Group();
+  g.add(box(0.42, 0.16, 0.26, EV.tractor, 0.06, 0.1, 0));
+  g.add(box(0.2, 0.26, 0.26, EV.tractor, -0.12, 0.18, 0));
+  g.add(box(0.16, 0.12, 0.27, M.window, -0.12, 0.28, 0));
+  g.add(box(0.03, 0.18, 0.03, EV.tractorDark, 0.18, 0.24, 0.06)); // exhaust
+  const wheel = (r, x, z) => {
+    const w = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.07, 12), EV.tractorDark);
+    w.rotation.x = Math.PI / 2;
+    w.position.set(x, r, z);
+    w.castShadow = true;
+    return w;
+  };
+  g.add(wheel(0.14, -0.12, 0.16), wheel(0.14, -0.12, -0.16), wheel(0.08, 0.2, 0.15), wheel(0.08, 0.2, -0.15));
+  const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6), EV.beacon);
+  beacon.position.set(-0.12, 0.47, 0);
+  beacon.name = 'beacon';
+  g.add(beacon);
+  return g;
+}
+
+function person(bodyMat, { dress = false } = {}) {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(
+    dress ? new THREE.ConeGeometry(0.1, 0.24, 8) : new THREE.CylinderGeometry(0.045, 0.08, 0.22, 8),
+    bodyMat,
+  );
+  body.position.y = dress ? 0.12 : 0.11;
+  body.castShadow = true;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 8), M.skin);
+  head.position.y = 0.28;
+  head.castShadow = true;
+  g.add(body, head);
+  return g;
+}
+
+/** A small wedding procession: accordion player in front, then the couple, then guests. */
+export function createWeddingGroup() {
+  const members = [];
+  const player = person(EV.suit);
+  player.add(box(0.1, 0.1, 0.14, EV.accordion, 0.07, 0.1, 0));
+  members.push(player, person(EV.dress, { dress: true }), person(EV.suit));
+  for (const m of EV.guest) members.push(person(m));
+  return members;
+}
+
+export function createJournalist() {
+  const g = person(EV.jacket);
+  g.add(box(0.08, 0.07, 0.1, EV.camera, 0.08, 0.2, 0));
+  g.add(box(0.05, 0.04, 0.04, EV.camera, 0.14, 0.22, 0));
+  return g;
+}

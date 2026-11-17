@@ -32,6 +32,29 @@ export class Labels {
     this.wishMarkers = new Map(); // citizenId -> element
   }
 
+  /** Bouncing marker with icon and a countdown bar above the current map event. */
+  updateEventMarker(info, worldPos) {
+    if (!info) {
+      if (this.eventMarker) {
+        this.eventMarker.remove();
+        this.eventMarker = null;
+      }
+      return;
+    }
+    if (!this.eventMarker) {
+      const el = document.createElement('div');
+      el.className = 'event-marker';
+      el.innerHTML = '<div class="em-icon"></div><div class="em-bar"><div></div></div>';
+      this.container.appendChild(el);
+      this.eventMarker = el;
+    }
+    this.eventMarker.querySelector('.em-icon').textContent = info.icon;
+    const bar = this.eventMarker.querySelector('.em-bar > div');
+    bar.style.width = `${(info.timeLeft * 100).toFixed(1)}%`;
+    bar.classList.toggle('low', info.timeLeft < 0.3);
+    this.place(this.eventMarker, worldPos);
+  }
+
   /** "!" markers above citizens who currently want something. */
   updateWishMarkers(state, citizenLayer) {
     const active = new Set((state.wishes || []).map((w) => w.citizenId));
