@@ -18,11 +18,16 @@ function countInDistrict(state, type, district) {
   return n;
 }
 
-/** Creates a new wish for a citizen without one. Templates don't repeat until all are used. */
-export function spawnWish(state) {
-  if (state.wishes.length >= CONFIG.wishes.maxActive) return null;
+/**
+ * Creates a new wish for a citizen without one. Templates don't repeat until all are used.
+ * `forCitizen` (when the mayor listens to someone) skips the limit on active wishes.
+ */
+export function spawnWish(state, forCitizen = null) {
+  if (!forCitizen && state.wishes.length >= CONFIG.wishes.maxActive) return null;
   const busy = new Set(state.wishes.map((w) => w.citizenId));
-  const candidates = state.citizens.filter((c) => !busy.has(c.id) && !c.protesting);
+  const candidates = forCitizen
+    ? [forCitizen].filter((c) => !busy.has(c.id))
+    : state.citizens.filter((c) => !busy.has(c.id) && !c.protesting);
   if (!candidates.length) return null;
 
   const season = seasonOf(state.month);

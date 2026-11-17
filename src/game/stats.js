@@ -2,6 +2,8 @@
 
 import { CONFIG } from '../config.js';
 import { DISTRICTS } from './map.js';
+import { taxRate } from './taxes.js';
+import { upgradeMonthly } from './upgrades.js';
 
 /** Mood score used for both the figure colour and mayor support. */
 export function moodScore(c, state) {
@@ -49,17 +51,20 @@ export function countTiles(state, type) {
 
 export function monthlyIncome(state) {
   const houses = countTiles(state, 'house');
-  const fullTaxes = CONFIG.economy.taxPerHouse * houses;
+  const rate = taxRate(state);
+  const fullTaxes = rate * houses;
   // During protests and riots part of the citizens refuse to pay (tax strike).
   const strike = state.unrest && state.unrest !== 'calm' ? Math.round(fullTaxes * CONFIG.unrest.taxStrike) : 0;
   // Inns and factories earn a fixed amount every month.
-  let business = 0;
+  // Inns and factories earn a fixed amount every month, some upgrades a bit more.
+  let business = upgradeMonthly(state).income;
   for (const t of state.grid) business += CONFIG.buildings[t.type]?.income || 0;
   return {
     base: CONFIG.economy.baseIncome,
     taxes: fullTaxes - strike,
     strike,
     houses,
+    rate,
     business,
     get total() {
       return this.base + this.taxes + this.business;
@@ -68,7 +73,7 @@ export function monthlyIncome(state) {
 }
 
 export function monthlyExpenses(state) {
-  let upkeep = 0;
+  let upkeep = upgradeMonthly(state).upkeep;
   for (const t of state.grid) {
     const b = CONFIG.buildings[t.type];
     if (b) upkeep += b.upkeep;

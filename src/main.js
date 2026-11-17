@@ -10,7 +10,6 @@ import { createSidebar } from './ui/sidebar.js';
 import { createCitizenPopup } from './ui/citizenPopup.js';
 import { showMonthCard } from './ui/monthReport.js';
 import { NewsTicker } from './ui/newsTicker.js';
-import { createDevPanel } from './ui/devPanel.js';
 import { toast } from './ui/toast.js';
 import { showTooltip, hideTooltip, escapeHtml } from './ui/tooltip.js';
 import { Music } from './audio/music.js';
@@ -22,6 +21,8 @@ import { createCampaignPanel } from './ui/campaignPanel.js';
 import { loadGame, saveGame, clearSave, describeSave } from './game/save.js';
 import { MONTHS } from './game/texts.js';
 import { openModal } from './ui/modal.js';
+import { createBuildingPanel } from './ui/buildingPanel.js';
+import { idx } from './game/map.js';
 
 // A saved game continues where it stopped (paused until the player confirms).
 const storage = (() => {
@@ -46,7 +47,55 @@ window.addEventListener('keydown', unlockSfx);
 
 const LEVER_SOUNDS = { cousin: 'coin', praise: 'paper', neighbor: 'paper', snow: 'chime', party: 'fanfare', media: 'shush', minister: 'clink' };
 const ticker = new NewsTicker(document.getElementById('news'));
+// ---------------------------------------------------------------------------
+// The mayor in person: he walks to people, events and ribbons before acting.
+
+function sendMayorToCitizen(id, act) {
+  const name = game.state.citizens[id].name.split(' ')[0];
+  view.mayor.approach(
+    () => view.citizenWorld(id),
+    () => {
+      const res = act(id);
+      if (res?.message) toast(res.message, res.effective === false ? 'info' : 'good', 4500);
+      view.labels.emote(act === shake ? '🤝' : '👂', () => view.citizenWorld(id));
+      view.mayor.cheer();
+      sfx.play('pat');
+    },
+  );
+  toast(`Župan gre do ${name} …`, 'info', 1800);
+}
+
+function sendMayorToRibbon(x, y) {
+  const spot = view.tileWorld(x, y).add({ x: 0, y: 0, z: 0.55 }); // the ribbon hangs in front
+  view.mayor.approach(
+    () => (game.state.grid[idx(x, y)].build?.phase === 'opening' ? spot : null),
+    () => {
+      if (game.cutRibbon(x, y).ok) {
+        view.mayor.cheer();
+        view.labels.emote('✂️', () => spot);
+        sfx.play('snip');
+      }
+    },
+    () => toast('Prepozno – otvoritev je že mimo.', 'error'),
+  );
+}
+
+function sendMayorToEvent() {
+  view.mayor.approach(
+    () => view.eventWorld(),
+    () => {
+      if (game.state.mapEvent) game.clickMapEvent();
+    },
+    () => {},
+  );
+}
+
+const shake = (id) => game.shakeHands(id);
+const listen = (id) => game.listen(id);
+
 const popup = createCitizenPopup(game, {
+  onShake: (id) => sendMayorToCitizen(id, shake),
+  onListen: (id) => sendMayorToCitizen(id, listen),
   onPayWish: payWish,
   onEnvelope(id) {
     const res = game.giveEnvelope(id);
@@ -59,7 +108,6 @@ const popup = createCitizenPopup(game, {
     sfx.play(res.ok ? 'coin' : 'error');
   },
 });
-const devPanel = createDevPanel(document.getElementById('dev-panel'), game);
 const topbar = createTopbar(document.getElementById('topbar'), game);
 
 let tool = null;
@@ -121,6 +169,36 @@ createWishPanel(document.getElementById('wish-panel'), game, {
   onPay: payWish,
   onSelect: (id, e) => popup.open(id, e.clientX, e.clientY),
 });
+// After the party: drunk citizens stagger home, and sometimes something goes wrong.
+const INCIDENT_SOUNDS = { brawl: 'punch', tanker: 'demolish', photo: 'camera', hangover: 'error' };
+game.on('party-after', ({ incident }) => {
+  if (!incident) {
+    toast('Veselica je mimo. Nekaj občanov se domov vrača po zelo vijugasti poti.', 'info', 4000);
+    return;
+  }
+  toast(incident.news, 'error', 6000);
+  sfx.play(INCIDENT_SOUNDS[incident.type]);
+  if (incident.type === 'brawl') {
+    const [a, b] = incident.citizens;
+    view.citizens.brawl(a, b, 4);
+    for (const id of [a, b]) view.labels.emote('💥', () => view.citizenWorld(id), 4);
+  }
+  for (const t of incident.tiles) view.labels.emote('💥', () => view.tileWorld(t.x, t.y), 3);
+  if (incident.type === 'photo') view.labels.emote('📸', () => view.mayor.pos, 3);
+});
+
+// Openings: a finished building waits for the mayor's scissors.
+game.on('ribbon', (r) => {
+  if (r.kind === 'opening') {
+    toast('✂️ Nova stavba čaka na otvoritev! Klikni nanjo in župan pride prerezat trak.', 'info', 4500);
+    sfx.play('alert');
+  } else if (r.kind === 'missed') {
+    toast(r.news, 'error', 5000);
+  } else if (r.kind === 'cut') {
+    toast(r.news, 'good', 4500);
+  }
+});
+
 // Live map events: announce, then report how it ended.
 const EVENT_SOUNDS = { bear: 'growl', tractor: 'tractor', wedding: 'fanfare', fire: 'fire', journalist: 'camera' };
 game.on('mapevent', (e) => {
@@ -185,6 +263,16 @@ view.onHover = (h) => {
 
 function renderHover() {
   const h = hover;
+  if (h?.mayor) {
+    view.preview.hide();
+    showTooltip(
+      `<div class="tt-title">🎩 Župan (vi)</div>
+       <div class="tt-muted">Klikni cesto ali travnik za sprehod. Klikni občana za rokovanje, dogodek ali trak, da župan steče tja.</div>`,
+      h.clientX,
+      h.clientY,
+    );
+    return;
+  }
   // A live event under the mouse: say what clicking does and what happens if ignored.
   if (h?.mapEvent && game.state.mapEvent) {
     const info = game.describeMapEvent();
@@ -192,7 +280,7 @@ function renderHover() {
     showTooltip(
       `<div class="tt-title">${info.icon} ${escapeHtml(info.name)} · klikni!</div>
        <div class="tt-good">${escapeHtml(info.action)}</div>
-       <div class="tt-muted">${escapeHtml(info.ignoreHint)}</div>`,
+       <div class="tt-muted">Župan mora priti do tja. ${escapeHtml(info.ignoreHint)}</div>`,
       h.clientX,
       h.clientY,
     );
@@ -234,10 +322,22 @@ function renderHover() {
 // ---------------------------------------------------------------------------
 // Clicks: build with the selected tool, otherwise inspect citizens
 
-view.onClick = ({ tile, citizenId, mapEvent, clientX, clientY }) => {
-  // Live events take priority over everything else, even an active build tool.
+const buildingPanel = createBuildingPanel(game, {
+  onBuy(x, y, id) {
+    const res = game.buyUpgrade(x, y, id);
+    if (!res.ok) toast(res.reason, 'error');
+    else {
+      toast(res.news, 'good', 4000);
+      sfx.play('build');
+    }
+  },
+  onRibbon: (x, y) => sendMayorToRibbon(x, y),
+});
+
+view.onClick = ({ tile, citizenId, mapEvent, point, clientX, clientY }) => {
+  // Live events take priority over everything else, even an active build tool: the mayor runs there.
   if (mapEvent && game.state.mapEvent) {
-    game.clickMapEvent();
+    sendMayorToEvent();
     return;
   }
   if (tool) {
@@ -245,10 +345,37 @@ view.onClick = ({ tile, citizenId, mapEvent, clientX, clientY }) => {
     const res = game.act(tool, tile.x, tile.y);
     if (!res.ok && res.reason) toast(res.reason, 'error');
     sfx.play(!res.ok ? 'error' : tool === 'demolish' ? 'demolish' : 'build');
+    // After every successful build the tool lets go of the mouse: back to "Na teren".
+    if (res.ok) sidebar.setTool(null);
     return;
   }
-  if (citizenId != null) popup.open(citizenId, clientX, clientY);
-  else popup.close();
+  // With a villager or building window open, a click on empty map only closes it.
+  const windowOpen = popup.currentId != null || buildingPanel.current != null;
+
+  if (citizenId != null) {
+    buildingPanel.close();
+    popup.open(citizenId, clientX, clientY);
+    return;
+  }
+  const t = tile && game.state.grid[idx(tile.x, tile.y)];
+  // A building waiting for its opening: the mayor goes to cut the ribbon.
+  if (t?.build?.phase === 'opening') {
+    popup.close();
+    buildingPanel.close();
+    sendMayorToRibbon(tile.x, tile.y);
+    return;
+  }
+  // Any building (church and roundabouts included): open its panel.
+  if (t && t.type !== 'grass' && t.type !== 'road') {
+    popup.close();
+    buildingPanel.open(tile.x, tile.y, clientX, clientY);
+    return;
+  }
+  popup.close();
+  buildingPanel.close();
+  if (windowOpen) return; // that click was just "close the window" – the mayor stays put
+  // Meadow or road: the mayor takes a walk.
+  if (point) view.mayor.goTo(point);
 };
 
 // ---------------------------------------------------------------------------
@@ -264,8 +391,6 @@ envyBtn.addEventListener('click', () => {
   view.setOverlay(on);
 });
 
-const devBtn = document.getElementById('dev-toggle');
-devBtn.addEventListener('click', () => devBtn.classList.toggle('active', devPanel.toggle()));
 
 // Background polka. Starts on the first click/key press (browser autoplay rules).
 const music = new Music();
@@ -288,6 +413,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     sidebar.setTool(null);
     popup.close();
+    buildingPanel.close();
   }
   // Space pauses / resumes time (but not while typing or dragging a slider).
   if (e.code === 'Space' && !(e.target instanceof HTMLInputElement) && document.getElementById('modal').hidden) {

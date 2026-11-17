@@ -2,7 +2,7 @@
 
 import * as THREE from 'three';
 import { SIZE, HALF, idx } from '../game/map.js';
-import { createModel, material, tree } from './models.js';
+import { createModel, material, tree, createScaffolding, createRibbon } from './models.js';
 import { tileToWorld } from './coords.js';
 
 const DISTRICT_TINTS = ['#8cc063', '#84b85c', '#93c469', '#89b65f'];
@@ -111,7 +111,14 @@ export class World {
     const old = this.tileObjects[i];
     if (old) this.tilesGroup.remove(old);
     const tile = this.state.grid[i];
-    const obj = createModel(tile.type, tile.variant);
+    let obj = createModel(tile.type, tile.variant, tile.upgrades || []);
+    if (obj && tile.build) {
+      // Under construction: scaffolding around it. Finished but not opened: a ribbon in front.
+      const wrap = new THREE.Group();
+      wrap.add(obj);
+      wrap.add(tile.build.phase === 'construction' ? createScaffolding(tile.type === 'house' ? 0.7 : 0.85) : createRibbon());
+      obj = wrap;
+    }
     if (obj) {
       tileToWorld(x, y, obj.position);
       this.tilesGroup.add(obj);

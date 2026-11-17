@@ -2,10 +2,24 @@
 // CONFIG is a live object: game logic reads it on every action, the dev panel mutates it.
 
 export const DEFAULT_CONFIG = {
+  // House tax, set by the player in the sidebar.
+  taxes: {
+    start: 300, // € per house per month at the start
+    neutral: 300, // at this rate the tax doesn't change happiness
+    step: 50,
+    min: 0,
+    max: 1000,
+    happyPer100: 1.5, // monthly happiness −1,5 for every 100 € above neutral (+ below)
+    lowBelow: 150, // "low" tax: happy thoughts
+    highAt: 450, // "high" tax: angry thoughts
+    veryHighAt: 600, // "very high": angry news, extra envy, bigger protests
+    veryHighEnvy: 1, // extra monthly envy ("in Žlampe it's cheaper")
+    protestBoost: 15, // more citizens join a protest when the tax is very high
+  },
+
   economy: {
     startBudget: 150000,
     baseIncome: 6000, // € per month
-    taxPerHouse: 300, // € per house per month
     baseCost: 7000, // salaries and coffee for the municipal office
   },
 
@@ -55,7 +69,26 @@ export const DEFAULT_CONFIG = {
     neighbor: { cost: 2000, envyReduction: 12, decay: 0.75, recovery: 0 },
     snow: { cost: 6000, happiness: -8, secret: 8000, affair: -10 },
     // affair: flat change of the affair risk (not weakened by repeated use)
-    party: { cost: 5000, envyReduction: 20, happiness: 10, affair: -5, decay: 0.75, recovery: 0, duration: 20 },
+    // The party is fun, but weaker than it used to be – and alcohol has consequences (see partyIncidents.js).
+    party: {
+      cost: 5000,
+      envyReduction: 10,
+      happiness: 6,
+      affair: -5,
+      decay: 0.75,
+      recovery: 0,
+      duration: 20,
+      drunkMin: 6, // citizens drunk after the party
+      drunkMax: 9,
+      drunkSeconds: 35,
+      incidentChance: 0.5,
+      brawlHappy: 10,
+      brawlEnvy: 6,
+      brawlCost: 800,
+      photoPropaganda: 4,
+      photoAffair: 4,
+      hangoverCost: 1500,
+    },
     // Paid from the secret account, not the budget.
     media: { cost: 15000, affair: -20, decay: 0.75, recovery: 0.1 },
     // Paid from the secret account: a gamble that may bring a state grant into the budget.
@@ -102,6 +135,27 @@ export const DEFAULT_CONFIG = {
     thoughtMax: 9,
     bubbleEvery: 4, // seconds between speech bubbles
     bubbleDuration: 4,
+  },
+
+  // New buildings: scaffolding first, then an opening ceremony waiting for the mayor.
+  construction: {
+    months: { house: 0.12, roundabout: 0.3, firehouse: 0.3, hall: 0.45, inn: 0.25, factory: 0.4 },
+    ribbonWindow: 0.7, // game-months the ribbon waits for the mayor
+    ribbonPropaganda: { roundabout: 4, firehouse: 3, hall: 5, inn: 2, factory: 3 },
+    ribbonDistrictHappy: 3,
+    missedDistrictHappy: -2,
+  },
+
+  // The mayor walking on the map.
+  mayor: {
+    walkSpeed: 2.6, // tiles per second at 1× (he hurries)
+    reach: 1.3, // tiles: close enough to shake hands, cut a ribbon or deal with an event
+    shakeHappy: 4,
+    shakeEnvy: -2,
+    shakeCooldown: 3, // months before the same citizen is impressed again
+    campaignShakePropaganda: 1,
+    listenWishChance: 0.6, // listening sometimes turns into a wish
+    listenHappy: 2,
   },
 
   // Live events on the map (bear, tractor, wedding, fire, journalist).

@@ -7,6 +7,8 @@ import { recoverLevers } from './levers.js';
 import { monthlyIncome, monthlyExpenses, districtStats, specialDeals } from './stats.js';
 import { tickModifiers, runScheduled } from './effects.js';
 import { tickWishes } from './wishes.js';
+import { applyMonthlyTax } from './taxes.js';
+import { tickMayorCooldowns } from './mayor.js';
 import { applyMonthlyUnrest, assignProtesters } from './unrest.js';
 import { pick } from './util.js';
 
@@ -35,6 +37,8 @@ export function advanceMonth(state) {
     c.envy += m.envyDrift + state.extraEnvyDrift;
     clampCitizen(c);
   }
+  const taxNews = applyMonthlyTax(state);
+  tickMayorCooldowns(state);
   state.propaganda = Math.max(0, state.propaganda - m.propagandaDecay);
   state.affair = Math.max(0, state.affair - m.affairDecay);
   recoverLevers(state);
@@ -68,6 +72,7 @@ export function advanceMonth(state) {
       taxes: income.taxes,
       strike: income.strike,
       houses: income.houses,
+      rate: income.rate,
       business: income.business,
       total: income.total,
     },
@@ -75,7 +80,7 @@ export function advanceMonth(state) {
     special,
     balance: income.total - expenses.total + special - (unrest.damage ? unrest.damage.cost : 0),
     events,
-    wishNews,
+    wishNews: [...wishNews, ...taxNews],
     unrest: unrest.level,
     damage: unrest.damage,
     startBudget,

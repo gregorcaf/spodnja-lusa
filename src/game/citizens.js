@@ -5,6 +5,7 @@ import { DISTRICTS, SIZE, idx, districtOf } from './map.js';
 import { CITIZEN_NAMES, CHARACTERS, THOUGHTS, BUILDINGS, NEIGHBOR, MOOD_LABELS } from './texts.js';
 import { clamp, randFloat, randInt, pick, shuffle, capitalize, fillTemplate } from './util.js';
 import { moodOf } from './stats.js';
+import { taxRate, taxLevel } from './taxes.js';
 
 const CHARACTER_KEYS = Object.keys(CHARACTERS);
 
@@ -60,6 +61,9 @@ export function pickThought(c, state) {
   const pools = [];
   const add = (list, weight) => list && list.length && pools.push({ list, weight });
 
+  // Drunk after the party: there is only one topic.
+  if (c.drunk > 0 && !state.party) return fillThought(pick(THOUGHTS.drunk), c);
+
   // Protesters only shout slogans (unless everyone is at the party).
   if (c.protesting && !state.party) {
     const slogans = state.unrest === 'riot' ? [...THOUGHTS.riot, ...THOUGHTS.protest] : THOUGHTS.protest;
@@ -87,6 +91,9 @@ export function pickThought(c, state) {
     else add(THOUGHTS.envyGeneric, weight);
   }
   if (state.propaganda >= 6) add(THOUGHTS.propaganda, 2);
+  const tax = taxLevel(taxRate(state));
+  if (tax === 'high' || tax === 'veryHigh') add(THOUGHTS.highTax, tax === 'veryHigh' ? 4 : 2.5);
+  if (tax === 'low') add(THOUGHTS.lowTax, 1.5);
   if (districtHas(state, c.home, 'factory')) add(THOUGHTS.nearFactory, 2.5);
   if (districtHas(state, c.home, 'inn')) add(THOUGHTS.nearInn, 2);
   if (c.happy < 30) add(THOUGHTS.lowHappy, 3);

@@ -10,6 +10,8 @@ import { EnvyOverlay } from './overlay.js';
 import { Effects } from './effects.js';
 import { Labels } from './labels.js';
 import { MapEventLayer } from './mapEvents.js';
+import { MayorActor } from './mayor.js';
+import { tileToWorld } from './coords.js';
 import { worldToTile } from './coords.js';
 import { inBounds } from '../game/map.js';
 import { districtStats } from '../game/stats.js';
@@ -40,6 +42,7 @@ export class MapView {
     this.overlay = new EnvyOverlay(this.scene);
     this.effects = new Effects(this.scene);
     this.mapEvents = new MapEventLayer(this.scene);
+    this.mayor = new MayorActor(this.scene, this.citizens);
     // Season and weather (a loaded game may also already be snowing or partying).
     this.applyWeather();
     if (state.party) this.effects.startParty(state.party);
@@ -104,6 +107,7 @@ export class MapView {
         tile: this.hover.tile,
         citizenId: this.hover.citizenId,
         mapEvent: this.hover.mapEvent,
+        point: this.hoverPoint,
         clientX: e.clientX,
         clientY: e.clientY,
       });
@@ -131,6 +135,22 @@ export class MapView {
     const h = this.container.clientHeight;
     this.renderer.setSize(w, h);
     this.controls.resize(w, h);
+  }
+
+  /** World positions the mayor can walk to. */
+  tileWorld(x, y) {
+    return tileToWorld(x, y);
+  }
+
+  citizenWorld(id) {
+    return this.citizens.figureById(id).pos;
+  }
+
+  /** Ground position of the current live event, or null when there is none. */
+  eventWorld() {
+    if (!this.game.state.mapEvent || !this.mapEvents.hit) return null;
+    const p = this.mapEvents.hit.position;
+    return new THREE.Vector3(p.x, 0, p.z);
   }
 
   /** Screen (client) position of a citizen's head, for UI that follows them. */
@@ -170,29 +190,33 @@ export class MapView {
 
     // Live events win over citizens: they're urgent and short.
     const eventHit = this.raycaster.intersectObjects(this.mapEvents.hitboxes, false).length > 0;
-    const hits = eventHit ? [] : this.raycaster.intersectObjects(this.citizens.hitboxes, false);
+    const mayorHit = !eventHit && this.raycaster.intersectObjects(this.mayor.hitboxes, false).length > 0;
+    const hits = eventHit || mayorHit ? [] : this.raycaster.intersectObjects(this.citizens.hitboxes, false);
     const citizenId = hits.length ? hits[0].object.userData.citizenId : null;
 
     const p = new THREE.Vector3();
     let tile = null;
+    this.hoverPoint = null;
     if (this.raycaster.ray.intersectPlane(this.groundPlane, p)) {
+      this.hoverPoint = p.clone();
       const t = worldToTile(p.x, p.z);
       if (inBounds(t.x, t.y)) tile = t;
     }
-    this.setHover(tile, citizenId, eventHit);
+    this.setHover(tile, citizenId, eventHit, mayorHit);
   }
 
-  setHover(tile, citizenId, mapEvent = false) {
+  setHover(tile, citizenId, mapEvent = false, mayor = false) {
     const prev = this.hover;
     const sameTile = (prev.tile && tile && prev.tile.x === tile.x && prev.tile.y === tile.y) || (!prev.tile && !tile);
-    const changed = !sameTile || prev.citizenId !== citizenId || prev.mapEvent !== mapEvent;
-    this.hover = { tile, citizenId, mapEvent };
+    const changed = !sameTile || prev.citizenId !== citizenId || prev.mapEvent !== mapEvent || prev.mayor !== mayor;
+    this.hover = { tile, citizenId, mapEvent, mayor };
     if (changed || this.pointerMoved) {
       this.pointerMoved = false;
       this.onHover({
         tile,
         citizenId,
         mapEvent,
+        mayor,
         clientX: this.pointer?.clientX ?? 0,
         clientY: this.pointer?.clientY ?? 0,
       });
@@ -210,9 +234,13 @@ export class MapView {
     const state = this.game.state;
     this.mapEvents.update(worldDt, state);
     this.citizens.update(worldDt, this.hover.citizenId, this.selectedId, this.mapEvents.threat);
+    // The mayor hurries along with the game speed, so events stay reachable at 2× and 3×.
+    this.mayor.update(worldDt, Math.max(1, state.speed));
     this.effects.update(worldDt, this.time, this.game.state.party ? this.citizens.dancers() : [], this.game.state);
     this.labels.update(worldDt, this.game.state, this.citizens);
     this.labels.updateEventMarker(state.mapEvent ? this.game.describeMapEvent() : null, this.mapEvents.anchor);
+    this.labels.updateRibbonMarkers(this.game.pendingRibbons());
+    this.labels.updateEmotes(worldDt);
     this.renderer.render(this.scene, this.camera);
   }
 }

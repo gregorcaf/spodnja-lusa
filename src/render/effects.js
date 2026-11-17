@@ -173,7 +173,9 @@ export class Effects {
     this.factorySmokeTimer = 0.35;
     for (let y = 0; y < SIZE; y++) {
       for (let x = 0; x < SIZE; x++) {
-        if (state.grid[idx(x, y)].type !== 'factory') continue;
+        const tile = state.grid[idx(x, y)];
+        // A chimney filter (upgrade) ends the smoke.
+        if (tile.type !== 'factory' || tile.upgrades?.includes('filter')) continue;
         const p = tileToWorld(x, y).add(FACTORY_CHIMNEY);
         const sprite = new THREE.Sprite(
           new THREE.SpriteMaterial({ map: this.smokeTex, transparent: true, depthWrite: false }),
