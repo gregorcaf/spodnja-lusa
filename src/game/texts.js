@@ -372,6 +372,17 @@ export const BURN_NEWS = {
   factory: 'Med neredi je {loc} zgorela tovarna. Sosedje pravijo, da smrdi enako kot prej.',
 };
 
+// Protest damage (milder than riots: nothing burns).
+export const VANDAL_NEWS = {
+  roundabout: 'Protestniki so {loc} prevrnili kip v krožišču. Kip je zdaj vodoraven, krožišče pa navadno križišče.',
+  road: 'Protestniki so {loc} razkopali cesto in iz asfalta zgradili barikado. Barikada je bolj ravna od ceste.',
+  graffiti: [
+    'Protestniki so popisali občinsko stavbo z grafiti. Pravopisne napake bo popravila občina, na svoje stroške.',
+    'Ponoči je nekdo razbil tri klopi in na avtobusno postajo napisal »ODSTOP«. Klopi bodo nove, napis ostaja.',
+    'Protestniki so županov plakat okrasili z brki in rogovi. Po mnenju nekaterih je zdaj bolj podoben.',
+  ],
+};
+
 export const LEVER_ERRORS = {
   snowActive: 'Že sneži. Še več snega bi bilo sumljivo celo za zimsko službo.',
   partyActive: 'Veselica je že v teku. Dveh hkrati ne zmore niti ansambel.',

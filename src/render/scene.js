@@ -179,13 +179,16 @@ export class MapView {
   }
 
   update(dt) {
-    this.time += dt;
+    // When the game is paused the world freezes (citizens, party, snow, smoke, bubbles);
+    // only the camera keeps working.
+    const worldDt = this.game.paused ? 0 : dt;
+    this.time += worldDt;
     this.controls.update(dt);
     // Citizens move under a still mouse, so re-pick every frame.
     if (this.pointer && !this.controls.panning) this.pick();
-    this.citizens.update(dt, this.hover.citizenId, this.selectedId);
-    this.effects.update(dt, this.time, this.game.state.party ? this.citizens.dancers() : [], this.game.state);
-    this.labels.update(dt, this.game.state, this.citizens);
+    this.citizens.update(worldDt, this.hover.citizenId, this.selectedId);
+    this.effects.update(worldDt, this.time, this.game.state.party ? this.citizens.dancers() : [], this.game.state);
+    this.labels.update(worldDt, this.game.state, this.citizens);
     this.renderer.render(this.scene, this.camera);
   }
 }

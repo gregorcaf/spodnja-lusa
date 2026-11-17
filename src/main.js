@@ -119,7 +119,7 @@ function renderHover() {
   const h = hover;
   if (!h || (!h.tile && h.citizenId == null)) {
     view.preview.hide();
-    hideTooltip();
+    hideTooltip('map');
     return;
   }
 
@@ -146,7 +146,7 @@ function renderHover() {
     if (!forecast.ok && forecast.reason) html += `<div class="tt-bad">${escapeHtml(forecast.reason)}</div>`;
     showTooltip(html, h.clientX, h.clientY);
   } else {
-    hideTooltip();
+    hideTooltip('map');
   }
 }
 

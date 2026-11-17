@@ -19,7 +19,7 @@ export function showMonthCard(r, { onOpen, onClose }) {
     <div class="mc-head"><span>Mesečno poročilo · ${cap(r.month)}</span>${unrest}</div>
     <div class="mc-row"><span>Saldo</span><strong class="${r.balance >= 0 ? 'pos-ink' : 'neg-ink'}">${formatEuro(r.balance, { sign: true })}</strong></div>
     <div class="mc-row"><span>Proračun</span><strong>${formatEuro(r.budget)}</strong></div>
-    ${r.damage ? `<div class="mc-row neg-ink"><span>🔥 Škoda po neredih</span><strong>${formatEuro(-r.damage.cost)}</strong></div>` : ''}
+    ${r.damage ? `<div class="mc-row neg-ink"><span>${r.unrest === 'riot' ? '🔥 Škoda po neredih' : '🪧 Škoda po protestih'}</span><strong>${formatEuro(-r.damage.cost)}</strong></div>` : ''}
     <div class="mc-thought">»${escapeHtml(r.thought.text)}« <span>— ${escapeHtml(r.thought.name)}</span></div>
     <button class="mc-more">Podrobnosti ▸</button>`;
   card.hidden = false;
@@ -59,11 +59,11 @@ export function showMonthReport(r, { onOpen, onClose } = {}) {
           ${r.income.strike ? `<tr class="neg-ink"><td>Davčna stavka protestnikov</td><td>${formatEuro(-r.income.strike)}</td></tr>` : ''}
           <tr><td>Plače in kava občinske uprave</td><td>${formatEuro(-r.expenses.base)}</td></tr>
           <tr><td>Vzdrževanje objektov</td><td>${formatEuro(-r.expenses.upkeep)}</td></tr>
-          ${r.damage ? `<tr class="neg-ink"><td>Sanacija po neredih</td><td>${formatEuro(-r.damage.cost)}</td></tr>` : ''}
+          ${r.damage ? `<tr class="neg-ink"><td>${r.unrest === 'riot' ? 'Sanacija po neredih' : 'Popravila po protestih'}</td><td>${formatEuro(-r.damage.cost)}</td></tr>` : ''}
           <tr class="sum"><td>Mesečni saldo</td><td class="${r.balance >= 0 ? 'pos-ink' : 'neg-ink'}">${formatEuro(r.balance, { sign: true })}</td></tr>
           <tr><td><strong>Proračun</strong></td><td><strong>${formatEuro(r.budget)}</strong></td></tr>
         </table>
-        ${r.damage ? `<p class="report-damage">🔥 ${escapeHtml(r.damage.news)}</p>` : ''}
+        ${r.damage ? `<p class="report-damage">${r.unrest === 'riot' ? '🔥' : '🪧'} ${escapeHtml(r.damage.news)}</p>` : ''}
         <div class="districts">
           <div><div class="k">Najbolj zadovoljen konec</div><div class="v">${r.happiest.name}</div><div class="muted">sreča ${Math.round(r.happiest.value)}</div></div>
           <div><div class="k">Najbolj fovšen konec</div><div class="v">${r.enviest.name}</div><div class="muted">fovšija ${Math.round(r.enviest.value)}</div></div>
