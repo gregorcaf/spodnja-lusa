@@ -32,6 +32,7 @@ src/
     overlay.js     envy map
     effects.js     snow, party lights and notes
     labels.js      HTML district labels and thought bubbles
+  audio/music.js   original polka synthesised with Web Audio (no audio files)
   ui/              HTML interface (top bar, sidebar, ticker, popup, report, dev panel)
 ```
 

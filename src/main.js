@@ -13,6 +13,7 @@ import { NewsTicker } from './ui/newsTicker.js';
 import { createDevPanel } from './ui/devPanel.js';
 import { toast } from './ui/toast.js';
 import { showTooltip, hideTooltip, escapeHtml } from './ui/tooltip.js';
+import { Music } from './audio/music.js';
 
 const game = new Game();
 const view = new MapView(document.getElementById('map'), game);
@@ -115,6 +116,17 @@ envyBtn.addEventListener('click', () => {
 
 const devBtn = document.getElementById('dev-toggle');
 devBtn.addEventListener('click', () => devBtn.classList.toggle('active', devPanel.toggle()));
+
+// Background polka. Starts on the first click/key press (browser autoplay rules).
+const music = new Music();
+const musicBtn = document.getElementById('music-toggle');
+musicBtn.classList.toggle('active', music.enabled);
+musicBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  musicBtn.classList.toggle('active', music.toggle());
+});
+game.on('party-start', () => music.setParty(true));
+game.on('party-end', () => music.setParty(false));
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {

@@ -95,6 +95,14 @@ function sliderGroups() {
     ],
   });
 
+  groups.push({
+    title: 'Glasba',
+    rows: [
+      { path: 'audio.musicVolume', label: 'Glasnost', min: 0, max: 1, step: 0.05 },
+      { path: 'audio.tempo', label: 'Tempo (udarcev/min)', min: 80, max: 180, step: 1 },
+    ],
+  });
+
   return groups;
 }
 

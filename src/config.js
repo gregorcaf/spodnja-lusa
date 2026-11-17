@@ -75,6 +75,11 @@ export const DEFAULT_CONFIG = {
     bubbleEvery: 4, // seconds between speech bubbles
     bubbleDuration: 4,
   },
+
+  audio: {
+    musicVolume: 0.35,
+    tempo: 126, // quarter notes per minute (polka in 2/4)
+  },
 };
 
 export const CONFIG = structuredClone(DEFAULT_CONFIG);
