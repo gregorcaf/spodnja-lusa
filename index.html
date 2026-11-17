@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="sl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Naša občina — prototip</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛪</text></svg>" />
+  </head>
+  <body>
+    <div id="app">
+      <header id="topbar"></header>
+      <main id="map-wrap">
+        <div id="map"></div>
+        <div id="map-controls">
+          <button id="rot-left" title="Obrni pogled v levo">⟲</button>
+          <button id="rot-right" title="Obrni pogled v desno">⟳</button>
+          <button id="envy-toggle" class="toggle">Karta fovšije</button>
+          <button id="dev-toggle" class="toggle">🛠 Razvijalski panel</button>
+        </div>
+        <div id="map-hint">Kolesce: zoom · desni gumb: premik · Esc: prekliči orodje</div>
+        <div id="dev-panel" hidden></div>
+        <div id="toasts"></div>
+      </main>
+      <aside id="sidebar"></aside>
+      <footer id="news"><div class="news-label">NOVICE</div><div class="news-viewport"><div class="news-track"></div></div></footer>
+    </div>
+    <div id="tooltip" hidden></div>
+    <div id="citizen-popup" hidden></div>
+    <div id="modal" hidden></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
