@@ -16,16 +16,20 @@ export const BUILDINGS = {
   roundabout: { name: 'Krožišče', what: 'krožišče', short: 'krožišče' },
   firehouse: { name: 'Gasilski dom', what: 'gasilski dom', short: 'gasilski dom' },
   hall: { name: 'Večnamenska dvorana', what: 'večnamensko dvorano', short: 'večnamenska dvorana' },
+  inn: { name: 'Gostilna', what: 'gostilno', short: 'gostilna' },
+  factory: { name: 'Tovarna', what: 'tovarno', short: 'tovarna' },
   church: { name: 'Cerkev', what: 'cerkev', short: 'cerkev' },
 };
 
 export const TOOL_INFO = {
   inspect: { name: 'Opazuj', icon: '🔍', note: 'klik na občana' },
   road: { name: 'Cesta', icon: '🛣️', note: 'na travnik' },
-  house: { name: 'Hiša', icon: '🏠', note: 'prinaša davke' },
+  house: { name: 'Hiša', icon: '🏠', note: 'davek' },
   roundabout: { name: 'Krožišče', icon: '⭕', note: 'samo na cesto, s kipom' },
   firehouse: { name: 'Gasilski dom', icon: '🚒', note: 'na travnik' },
   hall: { name: 'Večnamenska dvorana', icon: '🏟️', note: 'na travnik' },
+  inn: { name: 'Gostilna', icon: '🍺', note: 'na travnik' },
+  factory: { name: 'Tovarna', icon: '🏭', note: 'smrdi' },
   demolish: { name: 'Podiranje', icon: '🚜', note: 'cerkve ne' },
 };
 
@@ -86,6 +90,50 @@ export const THOUGHTS = {
     'Ta ansambel igra isto pesem že tretjič. Super!',
     'Na veselici smo vsi prijatelji. Do ponedeljka.',
     'Gasilci znajo žurati. Gasiti mogoče tudi.',
+  ],
+  protest: [
+    'Kje je denar?!',
+    'Bratranca v zapor!',
+    'Odstop! Odstop!',
+    'Hočemo krožišče brez korupcije!',
+    'Danes protestiram, jutri pa spet na kavo k županu.',
+    'Transparent sem {napisal|napisala} sam{|a}. Brez razpisa.',
+  ],
+  riot: [
+    'Zdaj je pa dovolj!!!',
+    'Gori, gori, gori! (Ampak ne pri meni.)',
+    'Kje so zdaj gasilci? Ah, saj so tukaj, z nami.',
+    'To je za vse luknje na cesti!',
+  ],
+  nearFactory: [
+    'Spet smrdi iz tovarne. Ampak vsaj proračun diši.',
+    'Perila ne morem več sušiti zunaj. Hvala, tovarna.',
+    'V tovarni iščejo delavce. Jaz bi {šel|šla}, če ne bi bilo dela.',
+  ],
+  nearInn: [
+    'Gremo na eno v gostilno? Samo na eno.',
+    'V gostilni imajo nov golaž. Politika pa ista.',
+    'Natakarica ve več o občini kot župan.',
+  ],
+  grudge: [
+    'Še vedno čakam. Ampak župan ima čas samo za bratranca.',
+    'Obljube, obljube. Na volitvah se bomo pogovarjali.',
+    'Nič več ne prosim. Samo še pišem. Na Facebook.',
+  ],
+  loyal: [
+    'Župan drži besedo. Na volitvah vem, koga obkrožim.',
+    'Ne bom rekel{|a} nič slabega o županu. Vsaj ne do volitev.',
+  ],
+  bought: [
+    'Za koga bom volil{|a}? Težko vprašanje. Za župana, seveda.',
+    'Župan je dober človek. In radodaren. Predvsem radodaren.',
+    'Nič nisem dobil{|a}. Nobene kuverte. Zakaj sprašujete?',
+  ],
+  campaign: [
+    'Kampanja je. Župan me je pozdravil kar dvakrat na dan.',
+    'Kandidira {opponent}. Hm. Ne vem, ne vem.',
+    'Na plakatu je župan videti mlajši. Fotošop ali čudež?',
+    'Kdo bo dal več obljub, ta bo dobil moj glas.',
   ],
   propaganda: [
     'V glasilu piše, da je župan zgradil več kot Rimljani.',
@@ -172,6 +220,14 @@ export const BUILD_NEWS = {
     'Nov gasilski dom {loc}. Gasilci pravijo, da je odličen za veselice in, če bo treba, tudi za gašenje.',
     'Gasilski dom {loc} ima novo garažo za cisterno in še večjo za šotor.',
   ],
+  inn: [
+    '{Loc} so odprli gostilno. Prvi dan so prodali 300 malic in pojedli vse zaloge zaseke.',
+    'Nova gostilna {loc}: kuhinja do 22. ure, debate o politiki do treh zjutraj.',
+  ],
+  factory: [
+    '{Loc} je zrasla tovarna. Kaj proizvaja, še ni znano, smrdi pa že zdaj.',
+    'Nova tovarna {loc} obljublja 40 delovnih mest. Zaenkrat je zaposlila direktorja, njegovo ženo in bratranca.',
+  ],
   hall: [
     '{Loc} so odprli večnamensko dvorano. Namen še iščejo.',
     'Večnamenska dvorana {loc} bo gostila šport, kulturo in predvsem predvolilni shod.',
@@ -190,6 +246,8 @@ export const BUILDING_GENITIVE = {
   roundabout: 'krožišča',
   firehouse: 'gasilskega doma',
   hall: 'večnamenske dvorane',
+  inn: 'gostilne',
+  factory: 'tovarne',
 };
 
 export const NO_MONEY = [
@@ -250,18 +308,75 @@ export const LEVER_TEXTS = {
   party: {
     name: 'Gasilska veselica',
     icon: '🎉',
-    desc: 'Vsi na ples k gasilskemu domu. Fovšija dol, sreča gor.',
+    desc: 'Vsi na ples k gasilskemu domu. Fovšija dol, sreča gor, tveganje afere −5.',
     news: [
       'Gasilska veselica: ansambel je igral do treh, šotor je stal do štirih, gasilci so stali do petih.',
       'Na veselici so prodali 400 klobas in 900 piv. Gasilska cisterna je bila uporabljena za hlajenje.',
     ],
     toast: 'Veselica pri gasilskem domu! Vsi gremo plesat.',
   },
+  minister: {
+    name: 'Kosilo z ministrom',
+    icon: '🍽️',
+    desc: 'Plača skrivni račun. Čez 2 meseca 70 % možnosti za 70.000 € v proračun.',
+    fromSecret: true,
+    news: [
+      'Župan je ministra peljal na kosilo. Pet hodov, tri vina, račun plačan v gotovini.',
+      'Minister je bil na kosilu v naši občini. Pohvalil je žgance in obljubil »da bo videl, kaj se da«.',
+    ],
+    toast: 'Kosilo je bilo odlično. Zdaj čakamo, ali se bo minister spomnil na nas.',
+    success: 'Ministrstvo je občini nakazalo 70.000 € za »razvoj podeželja«. Kosilo se je obrestovalo.',
+    failure: 'Minister se kosila spominja z veseljem. Naše občine pa ne.',
+  },
+  media: {
+    name: 'Utišaj medije',
+    icon: '🤫',
+    desc: 'Plača skrivni račun. Tveganje afere −20.',
+    fromSecret: true,
+    news: [
+      'Lokalni portal je nepričakovano objavil 14 člankov o rekordni buči. O aferi niti besede.',
+      'Urednik lokalnega časopisa je odšel na dopust na Maldive. Naključje, pravijo.',
+    ],
+    toast: 'Mediji so utihnili. Tveganje afere −{n}.',
+  },
+};
+
+export const UNREST = {
+  protest: {
+    label: 'PROTESTI',
+    toast: 'Občani so prišli na ulice. Transparenti so ročno izdelani, pravopis tudi.',
+    news: 'Pri cerkvi se je zbrala množica protestnikov. Zahtevajo odstop, pojasnila in brezplačno parkiranje.',
+  },
+  riot: {
+    label: 'NEREDI',
+    toast: 'Protest je ušel izpod nadzora! Mesečno bo nekaj zgorelo.',
+    news: 'Protest se je sprevrgel v nerede. Gasilci so prišli hitro, a so najprej postavili šotor.',
+  },
+  // Riot cooling down to a protest.
+  cooling: {
+    toast: 'Neredi so se polegli. Protestniki ostajajo, a so pospravili bakle.',
+    news: 'Po neredih spet le protest. Protestniki so si razdelili čiščenje in sendviče.',
+  },
+  calm: {
+    toast: 'Protestniki so se razšli. Uradno zaradi dežja, neuradno zaradi nogometne tekme.',
+    news: 'V občini je spet mirno. Edini ostanek protesta je transparent, ki ga zdaj uporabljajo za kokošnjak.',
+  },
+};
+
+export const BURN_NEWS = {
+  house: 'Med neredi je {loc} zgorela hiša. Lastnik pravi, da je bila zavarovana bolje kot občina.',
+  firehouse: 'Ironija meseca: med neredi je {loc} zgorel gasilski dom.',
+  hall: 'Večnamenska dvorana {loc} je med neredi končno našla namen: gorela je.',
+  roundabout: 'Protestniki so {loc} prevrnili kip v krožišču. Ostala je le cesta in pločevinka barve.',
+  inn: 'Med neredi je {loc} zgorela gostilna. Gostje so vztrajali do zadnjega piva.',
+  factory: 'Med neredi je {loc} zgorela tovarna. Sosedje pravijo, da smrdi enako kot prej.',
 };
 
 export const LEVER_ERRORS = {
   snowActive: 'Že sneži. Še več snega bi bilo sumljivo celo za zimsko službo.',
   partyActive: 'Veselica je že v teku. Dveh hkrati ne zmore niti ansambel.',
+  noSecret: 'Na skrivnem računu ni dovolj. Bratranec bo moral spet na razpis.',
+  ministerPending: 'Minister še prebavlja zadnje kosilo. Počakaj, da se odloči.',
   noFirehouse: 'Brez gasilskega doma ni veselice. Najprej dom, potem šotor.',
 };
 

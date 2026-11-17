@@ -6,7 +6,7 @@ import { LEVER_TEXTS, LEVER_ERRORS, NO_MONEY } from './texts.js';
 import { clampCitizen } from './citizens.js';
 import { clamp, randInt, pick, fillTemplate, formatEuro } from './util.js';
 
-export const LEVER_IDS = ['cousin', 'praise', 'neighbor', 'snow', 'party'];
+export const LEVER_IDS = ['cousin', 'praise', 'neighbor', 'snow', 'party', 'media', 'minister'];
 
 export function findFirehouses(state) {
   const out = [];
@@ -21,12 +21,21 @@ export function findFirehouses(state) {
 /** Validates a lever without using it. Returns { ok, reason }. */
 export function checkLever(state, id) {
   const cfg = CONFIG.levers[id];
+  const blocked = state.modifiers.find((m) => m.blockLever === id);
+  if (blocked) return { ok: false, reason: `${blocked.label}: ta vzvod še ${blocked.months} mes. ni na voljo.` };
+  if (id === 'minister' && state.scheduled.some((s) => s.key === 'minister')) {
+    return { ok: false, reason: LEVER_ERRORS.ministerPending };
+  }
   if (id === 'snow' && state.snow) return { ok: false, reason: LEVER_ERRORS.snowActive };
   if (id === 'party') {
     if (state.party) return { ok: false, reason: LEVER_ERRORS.partyActive };
     if (!findFirehouses(state).length) return { ok: false, reason: LEVER_ERRORS.noFirehouse };
   }
-  if (state.budget < cfg.cost) return { ok: false, reason: pick(NO_MONEY) };
+  if (LEVER_TEXTS[id].fromSecret) {
+    if (state.secret < cfg.cost) return { ok: false, reason: LEVER_ERRORS.noSecret };
+  } else if (state.budget < cfg.cost) {
+    return { ok: false, reason: pick(NO_MONEY) };
+  }
   return { ok: true };
 }
 
@@ -37,12 +46,14 @@ export function useLever(state, id) {
 
   const cfg = CONFIG.levers[id];
   const txt = LEVER_TEXTS[id];
-  state.budget -= cfg.cost;
+  if (txt.fromSecret) state.secret -= cfg.cost;
+  else state.budget -= cfg.cost;
 
   switch (id) {
     case 'cousin': {
       const amount = Math.round(randInt(cfg.secretMin, cfg.secretMax) / 100) * 100;
       state.secret += amount;
+      state.stats.cousins += 1;
       state.affair = clamp(state.affair + randInt(cfg.affairMin, cfg.affairMax));
       return {
         ok: true,
@@ -52,7 +63,9 @@ export function useLever(state, id) {
     }
 
     case 'praise': {
-      const gain = cfg.propaganda * state.leverMult.praise;
+      // During the election campaign the newsletter works better.
+      const boost = state.campaign ? CONFIG.elections.campaignPraiseBoost : 1;
+      const gain = cfg.propaganda * state.leverMult.praise * boost;
       state.propaganda += gain;
       state.leverMult.praise *= cfg.decay;
       for (const c of state.citizens) {
@@ -99,12 +112,40 @@ export function useLever(state, id) {
       const m = state.leverMult.party;
       state.leverMult.party *= cfg.decay;
       state.party = { x: site.x, y: site.y, remaining: cfg.duration };
+      state.stats.parties += 1;
+      // Everyone is too busy dancing to read about the affair.
+      state.affair = clamp(state.affair + cfg.affair);
       for (const c of state.citizens) {
         c.envy -= cfg.envyReduction * m;
         c.happy += cfg.happiness * m;
         clampCitizen(c);
       }
       return { ok: true, toast: txt.toast, news: pick(txt.news) };
+    }
+
+    case 'minister': {
+      // The grant (or its absence) arrives a couple of months later.
+      state.scheduled.push({
+        key: 'minister',
+        in: cfg.delay,
+        chance: cfg.chance,
+        effect: { budget: cfg.payout },
+        news: txt.success,
+        elseNews: txt.failure,
+        ctx: {},
+      });
+      return { ok: true, toast: txt.toast, news: pick(txt.news) };
+    }
+
+    case 'media': {
+      const drop = -cfg.affair * state.leverMult.media;
+      state.leverMult.media *= cfg.decay;
+      state.affair = clamp(state.affair - drop);
+      return {
+        ok: true,
+        toast: fillTemplate(txt.toast, { n: drop.toFixed(1).replace('.', ',') }),
+        news: pick(txt.news),
+      };
     }
 
     default:
@@ -114,7 +155,7 @@ export function useLever(state, id) {
 
 /** Monthly slow recovery of diminished lever strength. */
 export function recoverLevers(state) {
-  for (const id of ['praise', 'neighbor', 'party']) {
+  for (const id of ['praise', 'neighbor', 'party', 'media']) {
     const r = CONFIG.levers[id].recovery || 0;
     state.leverMult[id] = Math.min(1, state.leverMult[id] + r);
   }

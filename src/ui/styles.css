@@ -440,18 +440,22 @@ button {
   color: var(--red);
 }
 
-.lever {
+.lever-grid {
   display: grid;
-  grid-template-columns: 22px 1fr auto;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.lever {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 3px;
   text-align: left;
   background: #fffdf8;
   border: 1.5px solid var(--line);
   border-radius: 10px;
-  padding: 5px 9px;
-  margin-bottom: 5px;
+  padding: 6px 9px;
   color: var(--ink);
 }
 
@@ -479,11 +483,14 @@ button {
   line-height: 1;
 }
 
+.lever .l-name {
+  line-height: 1.25;
+}
+
 .lever .l-cost {
   font-size: 12px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  text-align: right;
 }
 
 .lever .l-mult {
@@ -598,13 +605,54 @@ button {
 
 #citizen-popup {
   position: fixed;
+  left: 0;
+  top: 0;
   z-index: 25;
   width: 300px;
   background: var(--paper);
   border-radius: 14px;
   box-shadow: 0 10px 30px #0006;
   border: 1px solid var(--line);
-  overflow: hidden;
+  will-change: transform;
+  transition: opacity 0.2s;
+}
+
+/* Arrow pointing at the citizen (side set from JS). */
+#citizen-popup::before {
+  content: '';
+  position: absolute;
+  top: calc(var(--arrow-y, 50%) - 9px);
+  width: 16px;
+  height: 16px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  transform: rotate(45deg);
+  z-index: -1; /* behind the header, so only the outer half shows */
+}
+
+#citizen-popup[data-side='right']::before {
+  left: -9px;
+  border-top: none;
+  border-right: none;
+}
+
+#citizen-popup[data-side='left']::before {
+  right: -9px;
+  border-bottom: none;
+  border-left: none;
+}
+
+/* Citizen walked out of view: keep the popup, but fade it a bit and drop the arrow. */
+#citizen-popup.offscreen {
+  opacity: 0.85;
+}
+
+#citizen-popup.offscreen::before {
+  display: none;
+}
+
+#citizen-popup .cp-head {
+  border-radius: 14px 14px 0 0;
 }
 
 .cp-head {
@@ -839,7 +887,7 @@ button {
   position: absolute;
   top: 52px;
   left: 10px;
-  bottom: 30px;
+  max-height: calc(100% - 82px);
   width: 330px;
   z-index: 15;
   background: #1c2420f2;
@@ -916,4 +964,622 @@ button {
   grid-column: 1 / -1;
   width: 100%;
   accent-color: #f3cf6b;
+}
+
+/* ---------- Time controls ---------- */
+
+.time-stat {
+  min-width: 118px;
+}
+
+.month-progress {
+  height: 3px;
+  background: #ffffff22;
+  border-radius: 2px;
+  margin-top: 3px;
+  overflow: hidden;
+}
+
+.month-progress > div {
+  height: 100%;
+  width: 0;
+  background: #8fe19a;
+}
+
+#topbar.paused .month-progress > div {
+  background: #f3cf6b;
+}
+
+#topbar.paused .time-stat .value {
+  animation: blink 1.2s steps(2) infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.speed-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 10px 0 2px;
+  border-right: 1px solid #ffffff14;
+}
+
+.speed-group button {
+  background: #ffffff12;
+  color: #dfe6e0;
+  border: 1px solid #ffffff1f;
+  border-radius: 6px;
+  min-width: 30px;
+  padding: 3px 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.speed-group button:hover {
+  background: #ffffff26;
+}
+
+.speed-group button.active {
+  background: #8fe19a;
+  border-color: #8fe19a;
+  color: var(--dark);
+}
+
+#topbar.paused .speed-group button.active {
+  background: #f3cf6b;
+  border-color: #f3cf6b;
+}
+
+/* ---------- Unrest ---------- */
+
+.unrest-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  vertical-align: 2px;
+  color: #fff;
+  background: #d9822b;
+}
+
+.unrest-badge.riot {
+  background: #d4241a;
+  animation: blink 0.8s steps(2) infinite;
+}
+
+.thought-bubble.shout .bubble-inner {
+  border-color: #c0392b;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 12px;
+}
+
+.thought-bubble.shout .bubble-inner::after {
+  border-color: #c0392b;
+}
+
+.report-unrest {
+  background: #fde7e4;
+  color: #8e1f15;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.report-damage {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  color: #8e1f15;
+}
+
+/* ---------- Monthly report card ---------- */
+
+#month-card {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 12;
+  width: 290px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px #0005;
+  padding: 10px 12px;
+  font-size: 13px;
+  animation: card-in 0.3s ease-out;
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+#month-card.out {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+.mc-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+}
+
+.mc-row {
+  display: flex;
+  justify-content: space-between;
+  font-variant-numeric: tabular-nums;
+  margin: 2px 0;
+}
+
+.mc-thought {
+  margin-top: 6px;
+  font-style: italic;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.mc-thought span {
+  font-style: normal;
+  color: var(--ink-soft);
+}
+
+.mc-more {
+  margin-top: 8px;
+  width: 100%;
+  background: var(--dark);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 6px;
+  font-weight: 600;
+  font-size: 12.5px;
+}
+
+.pos-ink {
+  color: var(--accent);
+}
+
+.neg-ink {
+  color: var(--red);
+}
+
+.unrest-badge[hidden] {
+  display: none;
+}
+
+.tool .t-note.earns {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ---------- Dilemma cards ---------- */
+
+.report.dilemma {
+  width: min(520px, 94vw);
+}
+
+.dilemma-text {
+  font-size: 15px;
+  line-height: 1.5;
+  margin: 0 0 14px;
+}
+
+.dilemma-options {
+  display: grid;
+  gap: 8px;
+}
+
+.dilemma-option {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+  background: #fff;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  color: var(--ink);
+}
+
+.dilemma-option:hover {
+  border-color: var(--accent);
+  background: #f2f8f0;
+}
+
+.do-label {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.do-effects {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.do-unknown {
+  font-size: 12px;
+  color: #8a5a00;
+  font-style: italic;
+}
+
+/* ---------- Elections ---------- */
+
+.election-table td {
+  padding: 5px 0;
+}
+
+.election-table td:not(:first-child) {
+  text-align: center;
+  width: 70px;
+  font-weight: 700;
+}
+
+.er-head td {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-soft);
+}
+
+.er-row {
+  animation: toast-in 0.3s ease-out;
+}
+
+.er-mayor {
+  color: var(--accent);
+}
+
+.er-opp {
+  color: var(--red);
+}
+
+.election-verdict {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-weight: 700;
+  animation: pop-in 0.4s ease-out;
+}
+
+.election-verdict.won {
+  background: #e3f3df;
+  color: #1f5a2a;
+}
+
+.election-verdict.lost {
+  background: #fde7e4;
+  color: #8e1f15;
+}
+
+@keyframes pop-in {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+}
+
+.election-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.report footer button.danger {
+  background: var(--red);
+}
+
+.report footer button.secondary {
+  background: #6b665a;
+}
+
+.epilogue {
+  font-size: 14.5px;
+  line-height: 1.5;
+  font-style: italic;
+  margin: 0 0 10px;
+}
+
+.campaign-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  vertical-align: 2px;
+  background: #3a7bd5;
+  color: #fff;
+}
+
+/* ---------- Wishes ---------- */
+
+#wish-panel {
+  position: absolute;
+  left: 10px;
+  bottom: 36px;
+  z-index: 11;
+  width: 300px;
+  max-height: 46%;
+  overflow-y: auto;
+  background: #fffdf8f2;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 6px 20px #0004;
+  padding: 8px 10px;
+  font-size: 12.5px;
+}
+
+.wp-head {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  margin-bottom: 4px;
+}
+
+.wp-item {
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+}
+
+.wp-item.urgent .wp-left {
+  color: var(--red);
+  font-weight: 700;
+}
+
+.wp-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.wp-name {
+  background: none;
+  border: none;
+  padding: 0;
+  font-weight: 700;
+  color: var(--ink);
+  text-decoration: underline dotted;
+}
+
+.wp-left {
+  font-size: 11.5px;
+  color: var(--ink-soft);
+}
+
+.wp-text {
+  margin: 2px 0 5px;
+  line-height: 1.35;
+  font-style: italic;
+}
+
+.wp-pay,
+.cp-pay {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  padding: 4px 10px;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.wp-pay:disabled,
+.cp-pay:disabled {
+  background: #a9a493;
+  cursor: not-allowed;
+}
+
+.wp-build {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.wish-marker {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  border-radius: 50%;
+  background: #f2b01e;
+  color: #3a2700;
+  font-weight: 900;
+  font-size: 13px;
+  line-height: 18px;
+  text-align: center;
+  box-shadow: 0 1px 4px #0006;
+  pointer-events: none;
+  animation: bob 1.2s ease-in-out infinite;
+}
+
+@keyframes bob {
+  50% {
+    margin-top: -13px;
+  }
+}
+
+.cp-wish {
+  margin-top: 8px;
+  background: #fff6dc;
+  border-radius: 8px;
+  padding: 7px 9px;
+  line-height: 1.4;
+}
+
+.cp-wish .cp-pay {
+  display: block;
+  margin-top: 6px;
+}
+
+.cp-tag {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cp-tag.loyal {
+  color: var(--accent);
+}
+
+.cp-tag.grudge {
+  color: var(--red);
+}
+
+/* ---------- Deals from dilemma cards ---------- */
+
+.deal-list {
+  margin-top: 6px;
+}
+
+.deal {
+  font-size: 11.5px;
+  color: #8e1f15;
+  padding: 2px 2px;
+}
+
+.deal.good {
+  color: var(--accent);
+}
+
+.deal span {
+  color: var(--ink-soft);
+}
+
+/* ---------- Campaign panel ---------- */
+
+#campaign-panel {
+  position: absolute;
+  top: 52px;
+  right: 10px;
+  z-index: 11;
+  width: 300px;
+  background: #fffdf8f2;
+  border: 2px solid #3a7bd5;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px #0004;
+  padding: 9px 11px;
+  font-size: 12.5px;
+}
+
+.cmp-head {
+  font-weight: 800;
+  color: #2a5ea8;
+  margin-bottom: 5px;
+}
+
+.cmp-row {
+  margin: 2px 0;
+}
+
+.cmp-hint {
+  margin: 6px 0;
+  font-size: 11.5px;
+  color: var(--ink-soft);
+}
+
+.cmp-bribe {
+  width: 100%;
+  background: #2a2f3a;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 8px;
+  font-weight: 700;
+  font-size: 12.5px;
+  text-align: left;
+}
+
+.cmp-bribe span {
+  display: block;
+  font-weight: 500;
+  font-size: 11px;
+  color: #c9d0dc;
+}
+
+.cmp-bribe:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cp-buy {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  background: #2a5ea8;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 6px;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.cp-buy:disabled {
+  background: #a9a493;
+  cursor: not-allowed;
+}
+
+/* ---------- Secret-account buttons ---------- */
+
+.wp-actions,
+.cp-pay-row {
+  display: flex;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.wp-pay.secret,
+.cp-pay.secret {
+  background: #8a6d1d;
+}
+
+.cp-wish .cp-pay {
+  display: inline-block;
+  margin-top: 0;
+}
+
+.cp-envelope {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  background: #8a6d1d;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 6px;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.cp-envelope:disabled {
+  background: #a9a493;
+  cursor: not-allowed;
+}
+
+.cp-note {
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin-top: 3px;
+  text-align: center;
 }

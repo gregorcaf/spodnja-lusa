@@ -43,6 +43,14 @@ const M = {
   foliage: material('#3f7d3a', '#e8eef1'),
   foliage2: material('#4e8c3c', '#eef3f5'),
   skin: material('#f0c8a2'),
+  innWall: material('#e9d3a6'),
+  innRoof: material('#7a3b22', SNOW),
+  innSign: material('#d8a634', null, { emissive: '#3a2a05' }),
+  barrel: material('#8a5a33'),
+  factoryWall: material('#9aa4ad'),
+  factoryRoof: material('#5b636b', SNOW),
+  chimneyRed: material('#b23a2e'),
+  chimneyWhite: material('#eeeeee'),
 };
 
 const WALLS = ['#f3e3c3', '#e8d5b0', '#f2efe6', '#e6c9a8', '#d9e4dd', '#f2d0c4'].map((c) => material(c));
@@ -204,7 +212,47 @@ export function tree(scale = 1, variant = 0) {
   return g;
 }
 
-const BUILDERS = { road, house, church, roundabout, firehouse, hall };
+function inn(variant) {
+  const g = new THREE.Group();
+  g.add(box(0.7, 0.36, 0.5, M.innWall, 0, 0, -0.08));
+  g.add(gable(0.8, 0.26, 0.6, M.innRoof, 0.36).translateZ(-0.08));
+  g.add(box(0.12, 0.2, 0.02, M.door, 0, 0, 0.175));
+  g.add(box(0.11, 0.09, 0.02, M.window, -0.22, 0.17, 0.175));
+  g.add(box(0.11, 0.09, 0.02, M.window, 0.22, 0.17, 0.175));
+  // Hanging sign with a beer mug colour, a bench and a barrel out front.
+  g.add(box(0.015, 0.42, 0.015, M.trunk, 0.36, 0, 0.3));
+  g.add(box(0.16, 0.1, 0.02, M.innSign, 0.3, 0.28, 0.3));
+  g.add(box(0.3, 0.03, 0.08, M.trunk, -0.15, 0.08, 0.32));
+  g.add(box(0.03, 0.08, 0.06, M.trunk, -0.28, 0, 0.32));
+  g.add(box(0.03, 0.08, 0.06, M.trunk, -0.02, 0, 0.32));
+  g.add(cylinder(0.06, 0.06, 0.13, M.barrel, 10).translateX(0.12).translateZ(0.34));
+  g.rotation.y = (variant % 4) * (Math.PI / 2);
+  return g;
+}
+
+/** Chimney top in model space; effects.js emits smoke here. */
+export const FACTORY_CHIMNEY = new THREE.Vector3(0.3, 1.05, -0.24);
+
+function factory() {
+  const g = new THREE.Group();
+  g.add(box(0.86, 0.36, 0.66, M.factoryWall, -0.04, 0, 0.04));
+  // Saw-tooth roof: three slanted sheds.
+  for (let i = 0; i < 3; i++) {
+    const shed = gable(0.29, 0.16, 0.66, M.factoryRoof, 0.36);
+    shed.position.x = -0.33 + i * 0.29;
+    shed.position.z = 0.04;
+    g.add(shed);
+  }
+  g.add(box(0.2, 0.22, 0.02, M.garage, 0.2, 0, 0.375));
+  for (let i = 0; i < 3; i++) g.add(box(0.12, 0.08, 0.02, M.window, -0.32 + i * 0.17, 0.2, 0.375));
+  // Tall striped chimney.
+  g.add(cylinder(0.055, 0.075, 1.05, M.chimneyRed, 10).translateX(0.3).translateZ(-0.24));
+  g.add(cylinder(0.058, 0.058, 0.08, M.chimneyWhite, 10, 0.75).translateX(0.3).translateZ(-0.24));
+  g.add(cylinder(0.058, 0.058, 0.08, M.chimneyWhite, 10, 0.95).translateX(0.3).translateZ(-0.24));
+  return g;
+}
+
+const BUILDERS = { road, house, church, roundabout, firehouse, hall, inn, factory };
 
 /** Returns a new Object3D for the given tile type, or null for grass. */
 export function createModel(type, variant = 0) {
@@ -233,6 +281,24 @@ export function createFigure() {
   hit.position.y = 0.2;
   const inner = new THREE.Group(); // animated part (bobbing / dancing)
   inner.add(body, head);
+  const sign = createSign();
+  sign.visible = false;
+  inner.add(sign);
   g.add(inner, hit);
-  return { group: g, inner, bodyMat, hit };
+  return { group: g, inner, bodyMat, hit, sign };
+}
+
+const signStickMat = material('#7a5532');
+const signBoardMats = ['#ffffff', '#fff3b0', '#ffd6d6'].map((c) => material(c));
+const signStripeMat = material('#d23b2f');
+
+/** Protest sign held above the head: a stick, a cardboard board and a red "slogan" stripe. */
+function createSign() {
+  const g = new THREE.Group();
+  g.add(box(0.012, 0.3, 0.012, signStickMat, 0.075, 0.12, 0));
+  g.add(box(0.2, 0.12, 0.012, signBoardMats[Math.floor(Math.random() * signBoardMats.length)], 0.075, 0.4, 0));
+  g.add(box(0.15, 0.025, 0.014, signStripeMat, 0.075, 0.455, 0));
+  g.add(box(0.1, 0.018, 0.014, signStripeMat, 0.075, 0.42, 0));
+  g.traverse((o) => (o.castShadow = false));
+  return g;
 }

@@ -1,8 +1,12 @@
 // Weather and party effects: snowfall with white landscape, party lights and music notes.
 
 import * as THREE from 'three';
-import { setSnowMaterials } from './models.js';
+import { setSnowMaterials, FACTORY_CHIMNEY } from './models.js';
 import { tileToWorld } from './coords.js';
+import { SIZE, idx } from '../game/map.js';
+
+const BURNABLE = ['house', 'firehouse', 'hall', 'roundabout', 'inn', 'factory'];
+const MAX_FIRES = 2;
 
 const SKY = new THREE.Color('#cfe4ec');
 const SNOW_SKY = new THREE.Color('#dde3e8');
@@ -18,6 +22,54 @@ export class Effects {
     this.notes = [];
     this.noteTimer = 0;
     this.noteTextures = ['♪', '♫', '♬'].map(makeGlyphTexture);
+    this.fires = []; // { x, y, light, timer }
+    this.factorySmokeTimer = 0;
+    this.particles = []; // flames and smoke
+    this.flameTex = makeBlobTexture('rgba(255,220,90,1)', 'rgba(255,90,20,0)');
+    this.smokeTex = makeBlobTexture('rgba(90,90,90,0.9)', 'rgba(60,60,60,0)');
+  }
+
+  /** During riots a couple of buildings are on fire (cosmetic; the real damage happens monthly). */
+  syncRiot(state) {
+    const rioting = state.unrest === 'riot';
+    // Drop fires that are no longer valid (riot over, or the building is gone).
+    this.fires = this.fires.filter((f) => {
+      const ok = rioting && BURNABLE.includes(state.grid[idx(f.x, f.y)].type);
+      if (!ok) this.scene.remove(f.light);
+      return ok;
+    });
+    if (!rioting || this.fires.length >= MAX_FIRES) return;
+    const candidates = [];
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        if (BURNABLE.includes(state.grid[idx(x, y)].type) && !this.fires.some((f) => f.x === x && f.y === y)) {
+          candidates.push({ x, y });
+        }
+      }
+    }
+    if (!candidates.length) return;
+    const { x, y } = candidates[Math.floor(Math.random() * candidates.length)];
+    const light = new THREE.PointLight('#ff7a2a', 2.5, 3);
+    tileToWorld(x, y, light.position).y = 0.8;
+    this.scene.add(light);
+    this.fires.push({ x, y, light, timer: 0 });
+  }
+
+  spawnParticle(fire, smoke) {
+    const sprite = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: smoke ? this.smokeTex : this.flameTex,
+        transparent: true,
+        depthWrite: false,
+        blending: smoke ? THREE.NormalBlending : THREE.AdditiveBlending,
+      }),
+    );
+    const p = tileToWorld(fire.x, fire.y);
+    sprite.position.set(p.x + (Math.random() - 0.5) * 0.5, smoke ? 0.7 : 0.25, p.z + (Math.random() - 0.5) * 0.5);
+    sprite.userData = { life: 0, max: smoke ? 2.6 : 0.8, smoke, grow: smoke ? 0.5 : -0.25, size: smoke ? 0.3 : 0.4 };
+    sprite.scale.setScalar(sprite.userData.size);
+    this.scene.add(sprite);
+    this.particles.push(sprite);
   }
 
   buildSnow() {
@@ -101,7 +153,53 @@ export class Effects {
     this.notes.push(sprite);
   }
 
-  update(dt, time, dancers) {
+  /** Factories puff grey smoke from their chimneys all the time. */
+  factorySmoke(dt, state) {
+    this.factorySmokeTimer -= dt;
+    if (this.factorySmokeTimer > 0) return;
+    this.factorySmokeTimer = 0.35;
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        if (state.grid[idx(x, y)].type !== 'factory') continue;
+        const p = tileToWorld(x, y).add(FACTORY_CHIMNEY);
+        const sprite = new THREE.Sprite(
+          new THREE.SpriteMaterial({ map: this.smokeTex, transparent: true, depthWrite: false }),
+        );
+        sprite.position.set(p.x + (Math.random() - 0.5) * 0.05, p.y, p.z + (Math.random() - 0.5) * 0.05);
+        sprite.userData = { life: 0, max: 3.2, smoke: true, grow: 0.35, size: 0.18 };
+        sprite.scale.setScalar(0.18);
+        this.scene.add(sprite);
+        this.particles.push(sprite);
+      }
+    }
+  }
+
+  update(dt, time, dancers, state) {
+    this.syncRiot(state);
+    this.factorySmoke(dt, state);
+    for (const f of this.fires) {
+      f.light.intensity = 2 + Math.sin(time * 17 + f.x) * 0.6 + Math.random() * 0.5;
+      f.timer -= dt;
+      if (f.timer <= 0) {
+        this.spawnParticle(f, false);
+        if (Math.random() < 0.35) this.spawnParticle(f, true);
+        f.timer = 0.05;
+      }
+    }
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      const u = p.userData;
+      u.life += dt;
+      p.position.y += dt * (u.smoke ? 0.5 : 0.9);
+      p.scale.setScalar(Math.max(0.02, u.size + u.grow * u.life));
+      p.material.opacity = Math.max(0, 1 - u.life / u.max) * (u.smoke ? 0.6 : 1);
+      if (u.life > u.max) {
+        this.scene.remove(p);
+        p.material.dispose();
+        this.particles.splice(i, 1);
+      }
+    }
+
     if (this.snow.visible) {
       const p = this.snow.geometry.attributes.position;
       for (let i = 0; i < FLAKES; i++) {
@@ -138,6 +236,20 @@ export class Effects {
       }
     }
   }
+}
+
+function makeBlobTexture(inner, outer) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(32, 32, 2, 32, 32, 30);
+  g.addColorStop(0, inner);
+  g.addColorStop(1, outer);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 64, 64);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
 }
 
 function makeGlyphTexture(glyph) {

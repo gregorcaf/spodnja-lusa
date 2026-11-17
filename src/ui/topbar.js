@@ -1,41 +1,95 @@
-// Status bar: date, budget (+ monthly balance), secret account, affair risk, moods, support.
+// Status bar: date with time controls, budget (+ monthly balance), secret account,
+// affair risk (+ unrest badge), moods and mayor support.
 
-import { MUNICIPALITY } from '../game/texts.js';
+import { CONFIG } from '../config.js';
+import { MUNICIPALITY, UNREST } from '../game/texts.js';
+import { SPEEDS } from '../game/game.js';
 import { dateLabel } from '../game/month.js';
 import { averages, supportCount, monthlyBalance } from '../game/stats.js';
 import { formatEuro } from '../game/util.js';
+import { monthsToElection, opponentLabel } from '../game/elections.js';
+
+const SPEED_LABELS = { 0: '⏸', 1: '1×', 2: '2×', 3: '3×' };
 
 export function createTopbar(el, game) {
-  function stat(label, value, extraClass = '', title = '') {
-    return `<div class="stat ${extraClass}" title="${title}"><span class="label">${label}</span><span class="value">${value}</span></div>`;
-  }
+  el.innerHTML = `
+    <div class="brand">⛪ ${MUNICIPALITY}</div>
+    <div class="stat time-stat">
+      <span class="label">Datum</span>
+      <span class="value" data-k="date"></span>
+      <div class="month-progress" title="Potek meseca"><div data-k="progress"></div></div>
+    </div>
+    <div class="speed-group" role="group" aria-label="Hitrost časa">
+      ${SPEEDS.map((s) => `<button data-speed="${s}" title="${s ? `Hitrost ${s}×` : 'Pavza (preslednica)'}">${SPEED_LABELS[s]}</button>`).join('')}
+    </div>
+    ${stat('Proračun', 'budget')}
+    ${stat('Skrivni račun', 'secret', 'secret', 'Za vsak primer. Z njim lahko utišaš medije.')}
+    <div class="stat" data-k="affair-stat">
+      <span class="label">Tveganje afere</span>
+      <span class="value"><span data-k="affair"></span><span class="unrest-badge" data-k="unrest" hidden></span></span>
+    </div>
+    ${stat('Povp. sreča', 'happy')}
+    ${stat('Povp. fovšija', 'envy')}
+    ${stat('Podpora županu', 'support', '', 'Občani, pri katerih je sreča − 0,7 × fovšija + propaganda > 25.')}
+    <div class="stat" data-k="election-stat">
+      <span class="label">Volitve</span>
+      <span class="value" data-k="election"></span>
+    </div>
+  `;
+
+  const q = (k) => el.querySelector(`[data-k="${k}"]`);
+  const speedButtons = [...el.querySelectorAll('[data-speed]')];
+  speedButtons.forEach((b) => b.addEventListener('click', () => game.setSpeed(Number(b.dataset.speed))));
 
   function render() {
     const s = game.state;
     const avg = averages(s);
     const balance = monthlyBalance(s);
-    const support = supportCount(s);
-    const balanceHtml = `<span class="sub ${balance >= 0 ? 'pos' : 'neg'}">(${formatEuro(balance, { sign: true })}/mes)</span>`;
 
-    el.innerHTML = [
-      `<div class="brand">⛪ ${MUNICIPALITY}</div>`,
-      stat('Datum', capitalizeFirst(dateLabel(s))),
-      stat('Proračun', `<span class="${s.budget < 0 ? 'neg' : ''}">${formatEuro(s.budget)}</span>${balanceHtml}`),
-      stat('Skrivni račun', formatEuro(s.secret), 'secret', 'Za vsak primer.'),
-      stat('Tveganje afere', `${s.affair.toFixed(1).replace('.', ',')} %`, s.affair >= 50 ? 'neg' : ''),
-      stat('Povp. sreča', Math.round(avg.happy)),
-      stat('Povp. fovšija', Math.round(avg.envy)),
-      stat(
-        'Podpora županu',
-        `${support} / ${s.citizens.length}`,
-        '',
-        `Občani, pri katerih je sreča − 0,7 × fovšija + propaganda > 25. Propaganda: ${s.propaganda.toFixed(1)}`,
-      ),
-    ].join('');
+    q('date').textContent = capitalizeFirst(dateLabel(s));
+    q('budget').innerHTML = `<span class="${s.budget < 0 ? 'neg' : ''}">${formatEuro(s.budget)}</span><span class="sub ${balance >= 0 ? 'pos' : 'neg'}">(${formatEuro(balance, { sign: true })}/mes)</span>`;
+    q('secret').textContent = formatEuro(s.secret);
+    q('affair').textContent = `${s.affair.toFixed(1).replace('.', ',')} %`;
+    q('affair').className = s.unrest !== 'calm' ? 'neg' : '';
+    q('affair-stat').title = `Od ${CONFIG.unrest.protestAt} % naprej protesti, od ${CONFIG.unrest.riotAt} % neredi.`;
+    const badge = q('unrest');
+    badge.hidden = s.unrest === 'calm';
+    if (s.unrest !== 'calm') {
+      badge.textContent = UNREST[s.unrest].label;
+      badge.className = `unrest-badge ${s.unrest}`;
+    }
+    q('happy').textContent = Math.round(avg.happy);
+    q('envy').textContent = Math.round(avg.envy);
+    q('support').textContent = `${supportCount(s)} / ${s.citizens.length}`;
+    const left = Math.max(0, monthsToElection(s));
+    q('election').innerHTML = s.campaign
+      ? `<span class="campaign-badge">KAMPANJA</span> čez ${left} mes.`
+      : `čez ${left} mes.`;
+    q('election-stat').title = s.campaign
+      ? `Protikandidat: ${opponentLabel(s)}. Za zmago potrebuješ ${CONFIG.elections.votesToWin} glasov.`
+      : `${s.term}. mandat. Za zmago potrebuješ ${CONFIG.elections.votesToWin} glasov od 25.`;
+    renderSpeed();
+  }
+
+  function renderSpeed() {
+    for (const b of speedButtons) b.classList.toggle('active', Number(b.dataset.speed) === game.state.speed);
+    el.classList.toggle('paused', game.state.speed === 0);
   }
 
   game.on('state', render);
+  game.on('time', renderSpeed);
   render();
+
+  return {
+    /** Called every frame: the month progress bar moves continuously. */
+    updateProgress() {
+      q('progress').style.width = `${(game.state.monthProgress * 100).toFixed(2)}%`;
+    },
+  };
+}
+
+function stat(label, key, extraClass = '', title = '') {
+  return `<div class="stat ${extraClass}" title="${title}"><span class="label">${label}</span><span class="value" data-k="${key}"></span></div>`;
 }
 
 function capitalizeFirst(s) {
