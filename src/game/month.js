@@ -23,7 +23,7 @@ export function advanceMonth(state) {
 
   state.budget += income.total - expenses.total + special;
   const unrest = applyMonthlyUnrest(state);
-  if (unrest.damage) state.stats.burned += 1;
+  if (unrest.level === 'riot' && unrest.damage) state.stats.burned += 1;
   tickModifiers(state);
   // Delayed consequences of earlier dilemma choices.
   const events = runScheduled(state);

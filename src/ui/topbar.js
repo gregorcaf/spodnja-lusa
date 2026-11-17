@@ -8,36 +8,50 @@ import { dateLabel } from '../game/month.js';
 import { averages, supportCount, monthlyBalance } from '../game/stats.js';
 import { formatEuro } from '../game/util.js';
 import { monthsToElection, opponentLabel } from '../game/elections.js';
+import { attachHelp } from './tooltip.js';
+import { statHelp } from './help.js';
 
 const SPEED_LABELS = { 0: '⏸', 1: '1×', 2: '2×', 3: '3×' };
 
 export function createTopbar(el, game) {
   el.innerHTML = `
     <div class="brand">⛪ ${MUNICIPALITY}</div>
-    <div class="stat time-stat">
+    <div class="stat time-stat" data-help="date">
       <span class="label">Datum</span>
       <span class="value" data-k="date"></span>
-      <div class="month-progress" title="Potek meseca"><div data-k="progress"></div></div>
+      <div class="month-progress"><div data-k="progress"></div></div>
     </div>
     <div class="speed-group" role="group" aria-label="Hitrost časa">
       ${SPEEDS.map((s) => `<button data-speed="${s}" title="${s ? `Hitrost ${s}×` : 'Pavza (preslednica)'}">${SPEED_LABELS[s]}</button>`).join('')}
     </div>
     ${stat('Proračun', 'budget')}
     ${stat('Skrivni račun', 'secret', 'secret', 'Za vsak primer. Z njim lahko utišaš medije.')}
-    <div class="stat" data-k="affair-stat">
+    <div class="stat" data-k="affair-stat" data-help="affair">
       <span class="label">Tveganje afere</span>
       <span class="value"><span data-k="affair"></span><span class="unrest-badge" data-k="unrest" hidden></span></span>
     </div>
     ${stat('Povp. sreča', 'happy')}
     ${stat('Povp. fovšija', 'envy')}
     ${stat('Podpora županu', 'support', '', 'Občani, pri katerih je sreča − 0,7 × fovšija + propaganda > 25.')}
-    <div class="stat" data-k="election-stat">
+    <div class="stat" data-k="election-stat" data-help="election">
       <span class="label">Volitve</span>
       <span class="value" data-k="election"></span>
     </div>
   `;
 
   const q = (k) => el.querySelector(`[data-k="${k}"]`);
+  el.querySelectorAll('[data-help]').forEach((node) =>
+    attachHelp(node, () => {
+      const key = node.dataset.help;
+      const st = game.state;
+      // The election help names the opponent during the campaign.
+      const extra =
+        key === 'election'
+          ? `<div class="tt-muted">${st.campaign ? `Protikandidat: ${opponentLabel(st)}.` : `Trenutno ${st.term}. mandat.`}</div>`
+          : '';
+      return statHelp(key) + extra;
+    }),
+  );
   const speedButtons = [...el.querySelectorAll('[data-speed]')];
   speedButtons.forEach((b) => b.addEventListener('click', () => game.setSpeed(Number(b.dataset.speed))));
 
@@ -51,7 +65,6 @@ export function createTopbar(el, game) {
     q('secret').textContent = formatEuro(s.secret);
     q('affair').textContent = `${s.affair.toFixed(1).replace('.', ',')} %`;
     q('affair').className = s.unrest !== 'calm' ? 'neg' : '';
-    q('affair-stat').title = `Od ${CONFIG.unrest.protestAt} % naprej protesti, od ${CONFIG.unrest.riotAt} % neredi.`;
     const badge = q('unrest');
     badge.hidden = s.unrest === 'calm';
     if (s.unrest !== 'calm') {
@@ -65,9 +78,6 @@ export function createTopbar(el, game) {
     q('election').innerHTML = s.campaign
       ? `<span class="campaign-badge">KAMPANJA</span> čez ${left} mes.`
       : `čez ${left} mes.`;
-    q('election-stat').title = s.campaign
-      ? `Protikandidat: ${opponentLabel(s)}. Za zmago potrebuješ ${CONFIG.elections.votesToWin} glasov.`
-      : `${s.term}. mandat. Za zmago potrebuješ ${CONFIG.elections.votesToWin} glasov od 25.`;
     renderSpeed();
   }
 
@@ -89,7 +99,7 @@ export function createTopbar(el, game) {
 }
 
 function stat(label, key, extraClass = '', title = '') {
-  return `<div class="stat ${extraClass}" title="${title}"><span class="label">${label}</span><span class="value" data-k="${key}"></span></div>`;
+  return `<div class="stat ${extraClass}" data-help="${key}"><span class="label">${label}</span><span class="value" data-k="${key}"></span></div>`;
 }
 
 function capitalizeFirst(s) {

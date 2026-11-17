@@ -166,7 +166,7 @@ export class Game extends Emitter {
     const report = advanceMonth(s);
     if (wasSnowing) this.emit('snow', false);
     if (report.damage) {
-      this.emit('tile', { x: report.damage.x, y: report.damage.y });
+      if (report.damage.x != null) this.emit('tile', { x: report.damage.x, y: report.damage.y });
       this.emit('news', report.damage.news);
     }
     for (const ev of report.events) {
@@ -351,12 +351,19 @@ export class Game extends Emitter {
       }
     }
 
+    // While paused (or waiting for a decision) the whole municipality holds still.
+    if (this.paused) return;
     if (tickThoughts(s, dt)) this.emit('thoughts');
     const p = s.party;
     if (p) {
       p.remaining -= dt;
       if (p.remaining <= 0) this.endParty();
     }
+  }
+
+  /** True when time is stopped: pause button, or a card/election waiting for an answer. */
+  get paused() {
+    return this.state.speed === 0 || this.blocked;
   }
 
   configChanged() {

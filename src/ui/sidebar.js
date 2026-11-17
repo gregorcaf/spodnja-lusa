@@ -5,6 +5,8 @@ import { TOOLS, toolCost } from '../game/building.js';
 import { LEVER_IDS } from '../game/levers.js';
 import { TOOL_INFO, LEVER_TEXTS } from '../game/texts.js';
 import { formatEuro } from '../game/util.js';
+import { attachHelp } from './tooltip.js';
+import { toolHelp, leverHelp } from './help.js';
 
 export function createSidebar(el, game, { onToolChange, onLever, onNextMonth }) {
   let selected = null;
@@ -42,6 +44,7 @@ export function createSidebar(el, game, { onToolChange, onLever, onNextMonth }) 
     if (id === 'hall') b.classList.add('wide');
     b.innerHTML = `<span class="t-name">${info.icon} ${info.name}</span><span class="t-cost"></span><span class="t-note"></span>`;
     b.addEventListener('click', () => setTool(id === 'inspect' ? null : id));
+    attachHelp(b, () => toolHelp(id));
     toolGrid.appendChild(b);
     toolButtons[id] = b;
   }
@@ -51,7 +54,7 @@ export function createSidebar(el, game, { onToolChange, onLever, onNextMonth }) 
     const t = LEVER_TEXTS[id];
     const b = document.createElement('button');
     b.className = 'lever';
-    b.title = t.desc;
+    attachHelp(b, () => leverHelp(id, game));
     b.innerHTML = `<span class="l-name">${t.icon} ${t.name}</span><span class="l-cost"></span>`;
     b.addEventListener('click', () => onLever(id));
     leverList.appendChild(b);

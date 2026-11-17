@@ -41,9 +41,10 @@ export const DEFAULT_CONFIG = {
   },
 
   month: {
-    happinessTarget: 35,
-    happinessPull: 0.06, // 6 % pull toward target per month
-    envyDrift: 1, // "they always find something"
+    // "Hard" difficulty: even a good mayor loses support over a term and must win it back.
+    happinessTarget: 30,
+    happinessPull: 0.08, // 8 % pull toward target per month
+    envyDrift: 2, // "they always find something"
     propagandaDecay: 1,
     affairDecay: 0.5,
   },
@@ -73,6 +74,8 @@ export const DEFAULT_CONFIG = {
     riotHappy: -6,
     taxStrike: 0.3, // share of house taxes not paid during unrest
     riotRepairCost: 8000, // € per building burned in a riot month
+    protestVandalism: 2000, // € per protest month (graffiti, broken benches)
+    protestDamageChance: 0.35, // chance per protest month to topple a statue or tear up a road
     extraAffairDecay: 3, // media lose interest faster during unrest
   },
 

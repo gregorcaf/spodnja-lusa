@@ -1583,3 +1583,33 @@ button {
   margin-top: 3px;
   text-align: center;
 }
+
+/* ---------- Help tooltips ---------- */
+
+#tooltip .tt-desc {
+  margin: 3px 0 6px;
+  color: #e6ece7;
+}
+
+#tooltip .tt-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+#tooltip .tt-line span:first-child {
+  color: #b9c3bc;
+}
+
+#tooltip .tt-line.good span:last-child {
+  color: #9ff0a8;
+}
+
+#tooltip .tt-line.bad span:last-child {
+  color: #ff9d90;
+}
+
+#tooltip .tt-muted {
+  margin-top: 5px;
+}
