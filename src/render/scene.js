@@ -47,6 +47,7 @@ export class MapView {
     this.groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     this.pointer = null; // { x, y, clientX, clientY } relative to the canvas
     this.hover = { tile: null, citizenId: null };
+    this.selectedId = null; // citizen whose popup is open
     this.downAt = null;
     this.time = 0;
 
@@ -101,14 +102,9 @@ export class MapView {
     const g = this.game;
     g.on('tile', ({ x, y }) => this.world.updateTile(x, y));
     g.on('snow', (on) => this.effects.setSnow(on));
-    g.on('party-start', (site) => {
-      this.citizens.startParty(site);
-      this.effects.startParty(site);
-    });
-    g.on('party-end', () => {
-      this.citizens.endParty();
-      this.effects.endParty();
-    });
+    // Citizens follow the game state on their own (party, protest); only effects need events.
+    g.on('party-start', (site) => this.effects.startParty(site));
+    g.on('party-end', () => this.effects.endParty());
     g.on('state', () => this.refreshOverlay());
   }
 
@@ -117,6 +113,14 @@ export class MapView {
     const h = this.container.clientHeight;
     this.renderer.setSize(w, h);
     this.controls.resize(w, h);
+  }
+
+  /** Screen (client) position of a citizen's head, for UI that follows them. */
+  citizenScreenPos(id) {
+    const f = this.citizens.figureById(id);
+    const p = this.labels.project({ x: f.pos.x, y: 0.32, z: f.pos.z });
+    const r = this.renderer.domElement.getBoundingClientRect();
+    return { x: r.left + p.x, y: r.top + p.y, inside: p.x >= 0 && p.y >= 0 && p.x <= r.width && p.y <= r.height };
   }
 
   rotate(dir) {
@@ -179,8 +183,8 @@ export class MapView {
     this.controls.update(dt);
     // Citizens move under a still mouse, so re-pick every frame.
     if (this.pointer && !this.controls.panning) this.pick();
-    this.citizens.update(dt, this.hover.citizenId);
-    this.effects.update(dt, this.time, this.game.state.party ? this.citizens.dancers() : []);
+    this.citizens.update(dt, this.hover.citizenId, this.selectedId);
+    this.effects.update(dt, this.time, this.game.state.party ? this.citizens.dancers() : [], this.game.state);
     this.labels.update(dt, this.game.state, this.citizens);
     this.renderer.render(this.scene, this.camera);
   }

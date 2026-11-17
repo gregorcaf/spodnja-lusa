@@ -9,13 +9,16 @@ export const DEFAULT_CONFIG = {
     baseCost: 7000, // salaries and coffee for the municipal office
   },
 
-  // Cost, monthly upkeep and construction effects
+  // Cost, monthly upkeep, monthly income and construction effects
   buildings: {
     road: { cost: 2000, upkeep: 30, homeHappy: 2, envyElse: 1, allHappy: 0 },
     house: { cost: 10000, upkeep: 0, homeHappy: 3, envyElse: 2, allHappy: 0 },
     roundabout: { cost: 60000, upkeep: 500, homeHappy: 15, envyElse: 12, allHappy: 3 },
     firehouse: { cost: 35000, upkeep: 1000, homeHappy: 6, envyElse: 4, allHappy: 6 },
     hall: { cost: 140000, upkeep: 3000, homeHappy: 10, envyElse: 15, allHappy: -3 },
+    // Income buildings: they earn money every month, with a catch.
+    inn: { cost: 25000, upkeep: 0, income: 800, homeHappy: 8, envyElse: 4, allHappy: 0 },
+    factory: { cost: 80000, upkeep: 0, income: 3000, homeHappy: -6, envyElse: 5, allHappy: 0 },
   },
 
   // Demolition: single cost, effect depends on what is demolished
@@ -27,6 +30,8 @@ export const DEFAULT_CONFIG = {
       roundabout: { homeHappy: -10, envyElse: -8, allHappy: 2 },
       firehouse: { homeHappy: -8, envyElse: -3, allHappy: -4 },
       hall: { homeHappy: -4, envyElse: -10, allHappy: 3 },
+      inn: { homeHappy: -8, envyElse: -2, allHappy: 0 },
+      factory: { homeHappy: 6, envyElse: -3, allHappy: 0 }, // the neighbours finally breathe
     },
   },
 
@@ -48,7 +53,27 @@ export const DEFAULT_CONFIG = {
     praise: { cost: 2000, propaganda: 8, decay: 0.75, recovery: 0.1, grumblerEnvy: 2 },
     neighbor: { cost: 2000, envyReduction: 12, decay: 0.75, recovery: 0 },
     snow: { cost: 6000, happiness: -8, secret: 8000, affair: -10 },
-    party: { cost: 5000, envyReduction: 20, happiness: 10, decay: 0.75, recovery: 0, duration: 20 },
+    // affair: flat change of the affair risk (not weakened by repeated use)
+    party: { cost: 5000, envyReduction: 20, happiness: 10, affair: -5, decay: 0.75, recovery: 0, duration: 20 },
+    // Paid from the secret account, not the budget.
+    media: { cost: 15000, affair: -20, decay: 0.75, recovery: 0.1 },
+    // Paid from the secret account: a gamble that may bring a state grant into the budget.
+    minister: { cost: 40000, payout: 70000, chance: 0.7, delay: 2 },
+  },
+
+  time: {
+    secondsPerMonth: 45, // real seconds per in-game month at 1× speed
+  },
+
+  // Consequences of a high affair risk.
+  unrest: {
+    protestAt: 50, // affair risk % where protests start
+    riotAt: 80, // affair risk % where protests turn into riots
+    protestHappy: -3, // monthly happiness change for everyone during unrest
+    riotHappy: -6,
+    taxStrike: 0.3, // share of house taxes not paid during unrest
+    riotRepairCost: 8000, // € per building burned in a riot month
+    extraAffairDecay: 3, // media lose interest faster during unrest
   },
 
   mood: {
@@ -74,6 +99,55 @@ export const DEFAULT_CONFIG = {
     thoughtMax: 9,
     bubbleEvery: 4, // seconds between speech bubbles
     bubbleDuration: 4,
+  },
+
+  dilemmas: {
+    minMonths: 1, // game-months between dilemma cards
+    maxMonths: 2,
+  },
+
+  elections: {
+    termMonths: 48, // a term lasts 4 years
+    campaignMonths: 3, // campaign before the vote
+    campaignPraiseBoost: 1.5, // "Hvalospevi" work better during the campaign
+    votesToWin: 13, // of 25
+    envyDriftPerTerm: 0.5, // every new term people expect more
+    recountCost: 30000, // € from the secret account
+    recountChance: 0.5,
+    recountAffair: 30,
+    // Buying votes (secret account, campaign only). Each next vote in a campaign costs more.
+    voteBaseCost: 8000,
+    voteCostStep: 2000,
+    voteAffair: 5,
+    // Bribing the opponent: expensive, may be refused, may leak.
+    bribeCost: 80000,
+    bribeChance: 0.5,
+    bribeRefuseAffair: 30,
+    bribeLeakChance: 0.3,
+    bribeLeakAffair: 25,
+  },
+
+  wishes: {
+    everyMonths: 0.8, // game-months between new wishes
+    maxActive: 3,
+    deadlineMonths: 3,
+    fulfillHappy: 15,
+    fulfillEnvy: -5,
+    loyalMonths: 12, // fulfilled wish = loyal voter for this long
+    loyalBonus: 15, // added to the mood score of loyal citizens
+    ignoreEnvy: 10,
+    ignoreHappy: -5,
+    grudgeMonths: 6,
+    // Paying a wish "iz svojega žepa" (secret account) instead of the budget.
+    secretPropaganda: 3,
+    secretAffair: 3,
+  },
+
+  // Envelopes for loyalty, any time of the year (secret account).
+  loyalty: {
+    baseCost: 10000,
+    costStep: 2000, // each next envelope in the same year costs more
+    affair: 5,
   },
 
   audio: {

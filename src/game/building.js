@@ -6,7 +6,7 @@ import { BUILD_ERRORS, NO_MONEY, BUILD_NEWS, DEMOLISH_NEWS, BUILDINGS, BUILDING_
 import { applyDistrictEffect } from './envy.js';
 import { pick, capitalize, fillTemplate, formatEuro, formatSigned } from './util.js';
 
-export const BUILD_TOOLS = ['road', 'house', 'roundabout', 'firehouse', 'hall'];
+export const BUILD_TOOLS = ['road', 'house', 'roundabout', 'firehouse', 'hall', 'inn', 'factory'];
 export const TOOLS = [...BUILD_TOOLS, 'demolish'];
 
 export function getTile(state, x, y) {
@@ -64,6 +64,10 @@ export function forecast(state, tool, x, y) {
     if (envy) parts.push(`${formatSigned(envy)} fovšija drugod`);
     if (e.allHappy) parts.push(`${formatSigned(e.allHappy)} sreča vsem`);
     parts.push(formatEuro(-toolCost(tool)));
+    if (tool !== 'demolish' && e.income) parts.push(`${formatEuro(e.income, { sign: true })}/mes`);
+    if (tool === 'demolish' && CONFIG.buildings[tile.type]?.income) {
+      parts.push(`${formatEuro(-CONFIG.buildings[tile.type].income)}/mes`);
+    }
   }
   return { ok: check.ok, text: parts.join(' · '), reason: check.reason, district: district.name };
 }
@@ -96,6 +100,8 @@ export function performAction(state, tool, x, y) {
   }
 
   state.grid[idx(x, y)] = { type: tool, variant: Math.floor(Math.random() * 1000) };
+  state.stats.built += 1;
+  if (tool === 'roundabout') state.stats.roundabouts += 1;
   applyDistrictEffect(state, districtId, effect, tool);
   news = fillTemplate(pick(BUILD_NEWS[tool]), vars);
   return { ok: true, news };

@@ -20,6 +20,12 @@ src/
     envy.js        the envy mechanic
     levers.js      the mayor's five levers
     month.js       monthly turn + report
+    unrest.js      protests and riots driven by the affair risk
+    effects.js     generic effects (used by dilemmas and wishes), modifiers, delayed consequences
+    dilemmas.js    picking and resolving dilemma cards
+    wishes.js      citizens' wishes: spawn, pay/build, expire
+    elections.js   campaign, vote, recount, epilogue
+    content/       dilemma cards and wishes (Slovenian text)
     stats.js       mood, support, averages, income/expenses
     texts.js       all Slovenian in-game text
   render/          Three.js (orthographic isometric camera)

@@ -14,6 +14,17 @@ const MOOD_COLORS = {
   unhappy: new THREE.Color('#e0473a'),
 };
 
+const RIOT_COLOR = new THREE.Color('#ff2a1a');
+const CHURCH_POS = new THREE.Vector3(-1.5, 0, -1.5);
+const PROTEST_CENTER = new THREE.Vector3(0, 0, 0);
+
+/** Random standing spot on the plus-shaped main crossroads (world x/z within the two-lane roads). */
+function randomProtestSpot() {
+  const along = (Math.random() * 2 - 1) * 2.6;
+  const across = (Math.random() * 2 - 1) * 0.85;
+  return Math.random() < 0.5 ? new THREE.Vector3(along, 0, across) : new THREE.Vector3(across, 0, along);
+}
+
 const DIRS = [
   [1, 0],
   [-1, 0],
@@ -46,7 +57,8 @@ export class CitizenLayer {
         pause: Math.random() * 2,
         phase: Math.random() * Math.PI * 2,
         speedJitter: 0.8 + Math.random() * 0.4,
-        danceSpot: null,
+        spot: null, // where to stand while partying / protesting
+        protestSpot: randomProtestSpot(),
       };
       this.tileCenter(start.x, start.y, f, f.pos);
       f.group.position.copy(f.pos);
@@ -164,35 +176,44 @@ export class CitizenLayer {
     if (Math.random() < 0.08) f.pause = 0.5 + Math.random() * 1.5;
   }
 
-  startParty(site) {
-    const n = this.figures.length;
-    const center = tileToWorld(site.x, site.y);
-    const goal = this.nearestWalkable(center.x, center.z);
-    this.figures.forEach((f, i) => {
-      f.mode = 'party';
-      f.path = [];
-      f.pause = Math.random() * 0.6;
-      const angle = (i / n) * Math.PI * 2;
-      const radius = 0.85 + (i % 3) * 0.22;
-      f.danceSpot = new THREE.Vector3(center.x + Math.cos(angle) * radius, 0, center.z + Math.sin(angle) * radius);
-
-      const here = worldToTile(f.pos.x, f.pos.z);
-      const start = this.walkable(here.x, here.y) ? here : this.nearestWalkable(f.pos.x, f.pos.z);
-      const route = start && goal ? this.findPath(start, goal) : null;
-      if (route) for (const t of route.slice(1)) f.path.push(this.tileCenter(t.x, t.y, f));
-      f.path.push(f.danceSpot.clone());
-    });
+  /** What a figure should be doing right now, according to the game state. */
+  desiredMode(c, state) {
+    if (state.party) return 'party';
+    if (c.protesting) return 'protest';
+    return 'wander';
   }
 
-  endParty() {
-    for (const f of this.figures) {
-      f.mode = 'wander';
-      f.path = [];
-      f.danceSpot = null;
-      f.inner.position.y = 0;
-      f.inner.rotation.set(0, 0, 0);
-      f.pause = Math.random() * 1.5;
+  setMode(f, mode, state) {
+    f.mode = mode;
+    f.path = [];
+    f.inner.position.y = 0;
+    f.inner.rotation.set(0, 0, 0);
+    f.sign.visible = mode === 'protest';
+    f.pause = Math.random() * (mode === 'wander' ? 1.5 : 0.6);
+
+    if (mode === 'party') {
+      const site = tileToWorld(state.party.x, state.party.y);
+      const angle = (f.id / this.figures.length) * Math.PI * 2;
+      const radius = 0.85 + (f.id % 3) * 0.22;
+      f.spot = new THREE.Vector3(site.x + Math.cos(angle) * radius, 0, site.z + Math.sin(angle) * radius);
+      this.routeTo(f, site, f.spot);
+    } else if (mode === 'protest') {
+      // Everyone gathers on the main crossroads next to the church.
+      f.spot = f.protestSpot;
+      this.routeTo(f, PROTEST_CENTER, f.spot);
+    } else {
+      f.spot = null; // planWander() walks back to the nearest road
     }
+  }
+
+  /** Walks along roads towards `center`, then straight to `spot`. */
+  routeTo(f, center, spot) {
+    const goal = this.nearestWalkable(center.x, center.z);
+    const here = worldToTile(f.pos.x, f.pos.z);
+    const start = this.walkable(here.x, here.y) ? here : this.nearestWalkable(f.pos.x, f.pos.z);
+    const route = start && goal ? this.findPath(start, goal) : null;
+    if (route) for (const t of route.slice(1)) f.path.push(this.tileCenter(t.x, t.y, f));
+    f.path.push(spot.clone());
   }
 
   /** Positions of figures currently dancing (for music-note effects). */
@@ -200,15 +221,28 @@ export class CitizenLayer {
     return this.figures.filter((f) => f.mode === 'party' && !f.path.length).map((f) => f.pos);
   }
 
-  update(dt, hoveredId = null) {
+  /** Ids of figures currently standing in the protest. */
+  protesters() {
+    return this.figures.filter((f) => f.mode === 'protest' && !f.path.length).map((f) => f.id);
+  }
+
+  update(dt, hoveredId = null, selectedId = null) {
     this.time += dt;
     const state = this.game.state;
     const speed = CONFIG.citizens.walkSpeed * (state.snow ? CONFIG.citizens.snowSpeedFactor : 1);
 
+    const rioting = state.unrest === 'riot';
     for (const f of this.figures) {
       const c = state.citizens[f.id];
+      const want = this.desiredMode(c, state);
+      if (want !== f.mode) this.setMode(f, want, state);
+
       f.bodyMat.color.copy(MOOD_COLORS[moodOf(c, state)]);
-      f.bodyMat.emissive.setRGB(hoveredId === f.id ? 0.25 : 0, hoveredId === f.id ? 0.25 : 0, hoveredId === f.id ? 0.25 : 0);
+      // Rioters flash red.
+      if (rioting && f.mode === 'protest' && Math.sin(this.time * 9 + f.phase) > 0) f.bodyMat.color.copy(RIOT_COLOR);
+      // Hovered and selected citizens glow a little (the selected one pulses).
+      const glow = f.id === selectedId ? 0.25 + Math.sin(this.time * 6) * 0.15 : hoveredId === f.id ? 0.25 : 0;
+      f.bodyMat.emissive.setRGB(glow, glow, glow);
 
       if (f.pause > 0) {
         f.pause -= dt;
@@ -218,8 +252,8 @@ export class CitizenLayer {
         const dx = target.x - f.pos.x;
         const dz = target.z - f.pos.z;
         const dist = Math.hypot(dx, dz);
-        // Partygoers hurry a bit.
-        const step = speed * f.speedJitter * (f.mode === 'party' ? 1.6 : 1) * dt;
+        // Partygoers and protesters hurry a bit.
+        const step = speed * f.speedJitter * (f.mode === 'wander' ? 1 : 1.6) * dt;
         if (dist <= step) {
           f.pos.set(target.x, 0, target.z);
           f.path.shift();
@@ -231,10 +265,17 @@ export class CitizenLayer {
         // Little walking bob.
         f.inner.position.y = Math.abs(Math.sin(this.time * 10 * speed + f.phase)) * 0.025;
         f.inner.rotation.y = 0;
+        f.inner.rotation.z = 0;
       } else if (f.mode === 'party') {
         // Dance: hop and spin.
         f.inner.position.y = Math.abs(Math.sin(this.time * 7 + f.phase)) * 0.12;
         f.inner.rotation.y += dt * 4;
+      } else if (f.mode === 'protest') {
+        // Face the church, wave the sign; rioters jump around angrily.
+        f.group.rotation.y = Math.atan2(CHURCH_POS.x - f.pos.x, CHURCH_POS.z - f.pos.z);
+        const beat = this.time * (rioting ? 9 : 4) + f.phase;
+        f.inner.position.y = Math.abs(Math.sin(beat)) * (rioting ? 0.1 : 0.03);
+        f.inner.rotation.z = Math.sin(beat) * (rioting ? 0.25 : 0.1);
       } else {
         this.planWander(f, c);
       }

@@ -5,7 +5,9 @@ import { DISTRICTS } from './map.js';
 
 /** Mood score used for both the figure colour and mayor support. */
 export function moodScore(c, state) {
-  return c.happy - CONFIG.mood.envyWeight * c.envy + state.propaganda;
+  // Citizens whose wish was fulfilled stay loyal for a while.
+  const loyal = c.loyalMonths > 0 ? CONFIG.wishes.loyalBonus : 0;
+  return c.happy - CONFIG.mood.envyWeight * c.envy + state.propaganda + loyal;
 }
 
 /** 'happy' | 'neutral' | 'unhappy' */
@@ -47,12 +49,20 @@ export function countTiles(state, type) {
 
 export function monthlyIncome(state) {
   const houses = countTiles(state, 'house');
+  const fullTaxes = CONFIG.economy.taxPerHouse * houses;
+  // During protests and riots part of the citizens refuse to pay (tax strike).
+  const strike = state.unrest && state.unrest !== 'calm' ? Math.round(fullTaxes * CONFIG.unrest.taxStrike) : 0;
+  // Inns and factories earn a fixed amount every month.
+  let business = 0;
+  for (const t of state.grid) business += CONFIG.buildings[t.type]?.income || 0;
   return {
     base: CONFIG.economy.baseIncome,
-    taxes: CONFIG.economy.taxPerHouse * houses,
+    taxes: fullTaxes - strike,
+    strike,
     houses,
+    business,
     get total() {
-      return this.base + this.taxes;
+      return this.base + this.taxes + this.business;
     },
   };
 }
@@ -72,6 +82,11 @@ export function monthlyExpenses(state) {
   };
 }
 
+/** Monthly sum of special deals from dilemma cards (positive = income). */
+export function specialDeals(state) {
+  return (state.modifiers || []).reduce((s, m) => s + (m.monthlyBudget || 0), 0);
+}
+
 export function monthlyBalance(state) {
-  return monthlyIncome(state).total - monthlyExpenses(state).total;
+  return monthlyIncome(state).total - monthlyExpenses(state).total + specialDeals(state);
 }

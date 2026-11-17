@@ -29,6 +29,31 @@ export class Labels {
 
     this.bubble = null; // { el, citizenId, remaining }
     this.bubbleTimer = 2;
+    this.wishMarkers = new Map(); // citizenId -> element
+  }
+
+  /** "!" markers above citizens who currently want something. */
+  updateWishMarkers(state, citizenLayer) {
+    const active = new Set((state.wishes || []).map((w) => w.citizenId));
+    for (const [id, el] of this.wishMarkers) {
+      if (!active.has(id)) {
+        el.remove();
+        this.wishMarkers.delete(id);
+      }
+    }
+    for (const id of active) {
+      let el = this.wishMarkers.get(id);
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'wish-marker';
+        el.textContent = '!';
+        this.container.appendChild(el);
+        this.wishMarkers.set(id, el);
+      }
+      const head = this.tmp.copy(citizenLayer.figureById(id).pos);
+      head.y = 0.62;
+      this.place(el, head.clone());
+    }
   }
 
   /** Shows "fovšija 42" next to district names while the envy map is on. */
@@ -54,7 +79,7 @@ export class Labels {
   showBubble(citizen, figure) {
     this.hideBubble();
     const el = document.createElement('div');
-    el.className = 'thought-bubble';
+    el.className = `thought-bubble${citizen.protesting ? ' shout' : ''}`;
     el.innerHTML = `<div class="bubble-inner"><strong></strong><span></span></div>`;
     el.querySelector('strong').textContent = citizen.name.split(' ')[0];
     el.querySelector('span').textContent = citizen.thought;
@@ -71,13 +96,18 @@ export class Labels {
 
   update(dt, state, citizenLayer) {
     for (const d of this.districtEls) this.place(d.el, d.pos);
+    this.updateWishMarkers(state, citizenLayer);
 
     // Occasionally a random citizen says what they think.
+    // During unrest the protesters shout their slogans much more often.
     this.bubbleTimer -= dt;
+    const protesters = state.unrest !== 'calm' && !state.party ? citizenLayer.protesters() : [];
+    if (protesters.length && this.bubbleTimer > 2.2) this.bubbleTimer = 2.2;
     if (this.bubbleTimer <= 0) {
-      const c = state.citizens[Math.floor(Math.random() * state.citizens.length)];
+      const pool = protesters.length ? protesters : state.citizens.map((c) => c.id);
+      const c = state.citizens[pool[Math.floor(Math.random() * pool.length)]];
       this.showBubble(c, citizenLayer.figureById(c.id));
-      this.bubbleTimer = CONFIG.citizens.bubbleEvery + CONFIG.citizens.bubbleDuration;
+      this.bubbleTimer = protesters.length ? 2.2 : CONFIG.citizens.bubbleEvery + CONFIG.citizens.bubbleDuration;
     }
     if (this.bubble) {
       this.bubble.remaining -= dt;
