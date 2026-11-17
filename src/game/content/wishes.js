@@ -3,6 +3,7 @@
 // Fields: id, text ({loc} = the citizen's home district, {male|female} for gender),
 //   cost: € to fulfil by paying, or build: building type to build in the citizen's district,
 //   character: optional character key – only citizens of that type make this wish.
+//   season: optional – only wished for in that season.
 
 export const WISHES = [
   // --- Paid wishes -----------------------------------------------------------
@@ -37,6 +38,16 @@ export const WISHES = [
   { id: 'stall', cost: 2000, character: 'entrepreneur', text: 'Stojnico na tržnici za moj s. p. Brez razpisa, prosim. Saj ste me razumeli.' },
   { id: 'apology', cost: 500, character: 'grumbler', text: 'Opravičilo župana v glasilu. Ker me lani ni pozdravil na pogrebu.' },
   { id: 'read-comment', cost: 400, character: 'commenter', text: 'Da na seji preberejo moj komentar. Ima samo 14 strani.' },
+
+  // Seasonal paid wishes
+  { id: 'xmas-lights', cost: 1500, season: 'winter', text: 'Novoletne lučke {loc}. Lani so bile samo pri sosedu in to ni bilo pošteno.' },
+  { id: 'plowed-yard', cost: 800, season: 'winter', text: 'Da mi zimska služba spluži dvorišče. Saj sem jim lani pomahal{|a}.' },
+  { id: 'flower-boxes', cost: 700, season: 'spring', text: 'Cvetlična korita na mostu {loc}. Lepše bo, pa še komisija bo vesela.' },
+  { id: 'bee-hotel', cost: 500, season: 'spring', text: 'Hotel za čebele {loc}. Brez razpisa, prosim, čebele so poštene.' },
+  { id: 'sunshade', cost: 900, season: 'summer', text: 'Senčnik na tržnici. Moji paradižniki in jaz potrebujemo senco.' },
+  { id: 'kids-pool', cost: 4000, season: 'summer', text: 'Bazen za otroke {loc}. In za upokojence ob torkih.' },
+  { id: 'chestnut-stove', cost: 600, season: 'autumn', text: 'Peč za kostanj na trgu. Da bo dišalo po jeseni in ne po tovarni.' },
+  { id: 'leaves', cost: 700, season: 'autumn', text: 'Da kdo pograbi listje pred cerkvijo. Ne jaz, da ne bo pomote.' },
 
   // --- Building wishes (fulfilled by building in the citizen's district) ------
   { id: 'road-1', build: 'road', text: 'Novo cesto {loc}. Da ne bom več hodil{|a} čez sosedov travnik. Čeprav mi je všeč.' },

@@ -8,14 +8,25 @@ import * as THREE from 'three';
 
 const snowables = [];
 
-export function material(color, snowColor = null, extra = {}) {
+/**
+ * @param seasonal optional colours per season, e.g. { autumn: '#c2692a' } – used when it isn't snowing
+ */
+export function material(color, snowColor = null, extra = {}, seasonal = null) {
   const m = new THREE.MeshLambertMaterial({ color, flatShading: true, ...extra });
-  if (snowColor) snowables.push({ m, normal: new THREE.Color(color), snow: new THREE.Color(snowColor) });
+  if (snowColor || seasonal) {
+    const seasons = {};
+    for (const [k, v] of Object.entries(seasonal || {})) seasons[k] = new THREE.Color(v);
+    snowables.push({ m, normal: new THREE.Color(color), snow: snowColor ? new THREE.Color(snowColor) : null, seasons });
+  }
   return m;
 }
 
-export function setSnowMaterials(on) {
-  for (const s of snowables) s.m.color.copy(on ? s.snow : s.normal);
+/** Colours the landscape for a season; `snowy` (winter or the snow lever) covers it in white. */
+export function setLandscape(season, snowy) {
+  for (const s of snowables) {
+    if (snowy && s.snow) s.m.color.copy(s.snow);
+    else s.m.color.copy(s.seasons[season] || s.normal);
+  }
 }
 
 const SNOW = '#f2f5f8';
@@ -24,7 +35,7 @@ const M = {
   road: material('#5d6168', '#a9b2bc'),
   roadEdge: material('#7b8088', '#dfe4ea'),
   curb: material('#d6d3cc'),
-  island: material('#5fa548', SNOW),
+  island: material('#5fa548', SNOW, {}, { autumn: '#8d9a45' }),
   statue: material('#d6a93c', null, { emissive: '#3a2a05' }),
   pedestal: material('#9b9a96'),
   door: material('#5a3d2a'),
@@ -40,8 +51,8 @@ const M = {
   hallWall: material('#d9cfa6'),
   hallRoof: material('#7c8c9b', SNOW),
   trunk: material('#6b4a2b'),
-  foliage: material('#3f7d3a', '#e8eef1'),
-  foliage2: material('#4e8c3c', '#eef3f5'),
+  foliage: material('#3f7d3a', '#e8eef1', {}, { autumn: '#c2692a', spring: '#4f9442' }),
+  foliage2: material('#4e8c3c', '#eef3f5', {}, { autumn: '#d39a2e', spring: '#62a64a' }),
   skin: material('#f0c8a2'),
   innWall: material('#e9d3a6'),
   innRoof: material('#7a3b22', SNOW),

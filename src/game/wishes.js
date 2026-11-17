@@ -6,6 +6,7 @@ import { DISTRICTS, SIZE, idx, districtOf } from './map.js';
 import { BUILDINGS } from './texts.js';
 import { clampCitizen } from './citizens.js';
 import { pick, capitalize, fillTemplate, formatEuro, clamp } from './util.js';
+import { seasonOf } from './seasons.js';
 
 function countInDistrict(state, type, district) {
   let n = 0;
@@ -24,7 +25,8 @@ export function spawnWish(state) {
   const candidates = state.citizens.filter((c) => !busy.has(c.id) && !c.protesting);
   if (!candidates.length) return null;
 
-  const fits = (t, c) => !t.character || t.character === c.character;
+  const season = seasonOf(state.month);
+  const fits = (t, c) => (!t.character || t.character === c.character) && (!t.season || t.season === season);
   const available = (c) => WISHES.filter((t) => fits(t, c) && !state.usedWishes.includes(t.id));
 
   let citizen = pick(candidates);

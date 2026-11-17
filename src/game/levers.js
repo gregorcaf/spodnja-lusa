@@ -5,6 +5,7 @@ import { SIZE, idx } from './map.js';
 import { LEVER_TEXTS, LEVER_ERRORS, NO_MONEY } from './texts.js';
 import { clampCitizen } from './citizens.js';
 import { clamp, randInt, pick, fillTemplate, formatEuro } from './util.js';
+import { seasonOf } from './seasons.js';
 
 export const LEVER_IDS = ['cousin', 'praise', 'neighbor', 'snow', 'party', 'media', 'minister'];
 
@@ -98,12 +99,17 @@ export function useLever(state, id) {
 
     case 'snow': {
       state.snow = true;
-      state.secret += cfg.secret;
-      state.affair = clamp(state.affair + cfg.affair);
+      // Snow in winter surprises nobody: no money for the winter service, no media distraction.
+      const winter = seasonOf(state.month) === 'winter';
+      if (!winter) {
+        state.secret += cfg.secret;
+        state.affair = clamp(state.affair + cfg.affair);
+      }
       for (const c of state.citizens) {
-        c.happy += cfg.happiness;
+        c.happy += winter ? Math.round(cfg.happiness / 2) : cfg.happiness;
         clampCitizen(c);
       }
+      if (winter) return { ok: true, toast: txt.winterToast, news: txt.winterNews };
       return { ok: true, toast: txt.toast, news: pick(txt.news) };
     }
 

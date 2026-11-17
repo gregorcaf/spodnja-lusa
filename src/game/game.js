@@ -26,7 +26,7 @@ import { performAction, forecast, checkAction } from './building.js';
 import { useLever, checkLever } from './levers.js';
 import { advanceMonth } from './month.js';
 import { unrestLevel, assignProtesters, protesterCount } from './unrest.js';
-import { drawDilemma, presentDilemma, resolveDilemma } from './dilemmas.js';
+import { drawDilemma, presentDilemma, resolveDilemma, dueYearlyEvent } from './dilemmas.js';
 import { spawnWish, payWish, checkBuildWishes } from './wishes.js';
 import {
   checkElectionCalendar,
@@ -68,6 +68,7 @@ export function createState() {
     dilemma: null, // card instance waiting for an answer
     dilemmaTimer: randFloat(0.4, 1), // game-months until the next card (first one comes early)
     usedDilemmas: [],
+    yearlyDone: {}, // yearly event id -> year it was shown
     modifiers: [], // lasting effects: { key, label, months, monthlyBudget?, blockLever? }
     scheduled: [], // delayed consequences
 
@@ -97,9 +98,10 @@ export function createState() {
 }
 
 export class Game extends Emitter {
-  constructor() {
+  /** @param {object|null} state a loaded save, or null for a new game */
+  constructor(state = null) {
     super();
-    this.state = createState();
+    this.state = state || createState();
   }
 
   /** True while the player must answer something (card, election). */
@@ -177,6 +179,9 @@ export class Game extends Emitter {
     if (report.events.some((e) => e.tiles.length)) this.afterTilesChanged();
     if (report.wishNews.length) this.emit('wishes', {});
     this.refreshUnrest();
+
+    // A yearly event (Christmas fair, summer festival) comes early in its month.
+    if (dueYearlyEvent(s)) s.dilemmaTimer = Math.min(s.dilemmaTimer, 0.3);
 
     const cal = checkElectionCalendar(s);
     if (cal.campaignStarted) {

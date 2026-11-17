@@ -304,6 +304,8 @@ export const LEVER_TEXTS = {
       'Sneg je presenetil vse razen ponudnika zimske službe, ki je pluge naoljil že prejšnji teden.',
     ],
     toast: 'Sneži! Zimska služba zasluži, mediji fotografirajo zasnežene tulipane.',
+    winterToast: 'Sneg pozimi? Nihče ni presenečen. Zimska služba ni zaslužila nič dodatnega, mediji niso opazili.',
+    winterNews: 'Pozimi je zapadel sneg. Novica je zbudila toliko zanimanja kot vremenska napoved za včeraj.',
   },
   party: {
     name: 'Gasilska veselica',

@@ -3,6 +3,7 @@
 // off-beat accordion chords and a light brush. No audio files are used.
 
 import { CONFIG } from '../config.js';
+import { getAudioContext } from './context.js';
 
 // ---------------------------------------------------------------------------
 // Score. Each bar is 2/4 = four eighth notes. Melody tokens: [midi | null (rest), length in eighths].
@@ -83,9 +84,10 @@ function thirdBelow(midi, scale) {
 function buildSteps() {
   const steps = [];
   for (const section of SECTIONS) {
+    const tonic = section.scale[0];
     section.melody.forEach((bar, b) => {
       const chord = CHORDS[section.chords[b]];
-      const barSteps = [0, 1, 2, 3].map((pos) => ({ chord, pos, melody: null }));
+      const barSteps = [0, 1, 2, 3].map((pos) => ({ chord, pos, melody: null, tonic }));
       let pos = 0;
       for (const [midi, len] of bar) {
         if (midi != null) barSteps[pos].melody = { midi, len, harmony: thirdBelow(midi, section.scale) };
@@ -101,6 +103,12 @@ const STEPS = buildSteps();
 
 const freq = (midi) => 440 * Math.pow(2, (midi - 69) / 12);
 
+/** Parallel minor: lowers the 3rd, 6th and 7th degree of the major key (for riots). */
+function minorize(midi, tonic) {
+  const interval = (((midi - tonic) % 12) + 12) % 12;
+  return interval === 4 || interval === 9 || interval === 11 ? midi - 1 : midi;
+}
+
 // ---------------------------------------------------------------------------
 
 const LOOKAHEAD = 0.15; // seconds scheduled ahead
@@ -110,6 +118,7 @@ export class Music {
     this.ctx = null;
     this.enabled = true; // music is always on when the game loads
     this.party = false;
+    this.minor = false; // riots turn the polka into a sad minor-key version
     this.step = 0;
     this.nextTime = 0;
     this.timer = null;
@@ -128,15 +137,10 @@ export class Music {
     window.addEventListener('pointerdown', unlock);
     window.addEventListener('keydown', unlock);
 
-    document.addEventListener('visibilitychange', () => {
-      if (!this.ctx || !this.enabled) return;
-      if (document.hidden) this.ctx.suspend();
-      else this.ctx.resume();
-    });
   }
 
   init() {
-    const ctx = new AudioContext();
+    const ctx = getAudioContext();
     this.ctx = ctx;
     this.master = ctx.createGain();
     this.master.gain.value = 0;
@@ -163,7 +167,6 @@ export class Music {
     clearInterval(this.timer);
     this.timer = null;
     this.master.gain.setTargetAtTime(0, this.ctx.currentTime, 0.08);
-    setTimeout(() => !this.enabled && this.ctx.suspend(), 400);
   }
 
   toggle() {
@@ -187,12 +190,17 @@ export class Music {
     this.party = on;
   }
 
+  /** Minor key and a slower tempo while the municipality is rioting. */
+  setMinor(on) {
+    this.minor = on;
+  }
+
   volume() {
     return CONFIG.audio.musicVolume * (this.party ? 1.3 : 1);
   }
 
   eighth() {
-    const bpm = CONFIG.audio.tempo * (this.party ? 1.12 : 1);
+    const bpm = CONFIG.audio.tempo * (this.party ? 1.12 : this.minor ? 0.85 : 1);
     return 60 / bpm / 2;
   }
 
@@ -212,17 +220,18 @@ export class Music {
 
   playStep(s, t) {
     const e = this.eighth();
+    const n = (midi) => (this.minor ? minorize(midi, s.tonic) : midi);
     // Oom (bass on the beat) – pah (accordion chord on the off-beat).
-    if (s.pos === 0) this.bass(s.chord.root, t, e * 1.6);
-    if (s.pos === 2) this.bass(s.chord.fifth, t, e * 1.6);
+    if (s.pos === 0) this.bass(n(s.chord.root), t, e * 1.6);
+    if (s.pos === 2) this.bass(n(s.chord.fifth), t, e * 1.6);
     if (s.pos === 1 || s.pos === 3) {
-      for (const n of s.chord.notes) this.chordNote(n, t, e * 0.7);
+      for (const note of s.chord.notes) this.chordNote(n(note), t, e * 0.7);
       this.brush(t);
     }
     if (s.melody) {
       const dur = s.melody.len * e * 0.92;
-      this.lead(s.melody.midi, t, dur);
-      if (s.melody.harmony) this.clarinet(s.melody.harmony, t, dur);
+      this.lead(n(s.melody.midi), t, dur);
+      if (s.melody.harmony) this.clarinet(n(s.melody.harmony), t, dur);
     }
   }
 

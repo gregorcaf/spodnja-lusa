@@ -7,7 +7,7 @@ import { formatEuro } from '../game/util.js';
 
 const REVEAL_MS = 700;
 
-export function showElection(result, { onContinue, onRecount, onAccept }) {
+export function showElection(result, { onContinue, onRecount, onAccept, onVerdict }) {
   const rows = result.districts
     .map(
       (d, i) => `<tr class="er-row" data-i="${i}" hidden>
@@ -41,6 +41,7 @@ export function showElection(result, { onContinue, onRecount, onAccept }) {
     const actions = el.querySelector('.election-actions');
     verdict.hidden = false;
     actions.hidden = false;
+    onVerdict?.(result.won);
     if (result.won) {
       verdict.className = 'election-verdict won';
       verdict.textContent = 'Zmaga! Občani so vam zaupali še en mandat. Pričakujejo pa več.';

@@ -12,6 +12,7 @@ import { Labels } from './labels.js';
 import { worldToTile } from './coords.js';
 import { inBounds } from '../game/map.js';
 import { districtStats } from '../game/stats.js';
+import { seasonOf } from '../game/seasons.js';
 
 export class MapView {
   constructor(container, game) {
@@ -37,6 +38,9 @@ export class MapView {
     this.preview = new Preview(this.scene);
     this.overlay = new EnvyOverlay(this.scene);
     this.effects = new Effects(this.scene);
+    // Season and weather (a loaded game may also already be snowing or partying).
+    this.applyWeather();
+    if (state.party) this.effects.startParty(state.party);
 
     const labelLayer = document.createElement('div');
     labelLayer.className = 'label-layer';
@@ -101,11 +105,17 @@ export class MapView {
   bindGame() {
     const g = this.game;
     g.on('tile', ({ x, y }) => this.world.updateTile(x, y));
-    g.on('snow', (on) => this.effects.setSnow(on));
+    g.on('snow', () => this.applyWeather());
+    g.on('month', () => this.applyWeather());
     // Citizens follow the game state on their own (party, protest); only effects need events.
     g.on('party-start', (site) => this.effects.startParty(site));
     g.on('party-end', () => this.effects.endParty());
     g.on('state', () => this.refreshOverlay());
+  }
+
+  applyWeather() {
+    const s = this.game.state;
+    this.effects.setWeather(seasonOf(s.month), s.snow);
   }
 
   resize() {
