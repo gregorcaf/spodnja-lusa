@@ -5,6 +5,8 @@
 //   district: 'random' | building type   how the card's district is picked (type = where such a building stands)
 //   citizen: true | character key        pick a random citizen (optionally of a given character)
 //   when(state)                          optional extra condition
+//   season: 'winter' | 'spring' | 'summer' | 'autumn'   only in that season
+//   yearly: month (0–11)                 a yearly event: shown once in that month every year
 //   options: [{ label, effect, later: [{ in, chance, effect, news, elseEffect, elseNews }], news }]
 //     effect is shown on the button; `later` stays hidden (only hinted at).
 
@@ -265,6 +267,7 @@ export const DILEMMAS = [
   },
   {
     id: 'snow-flat-rate',
+    season: 'autumn',
     title: 'Pavšal za zimsko službo',
     text: 'Ponudnik zimske službe ponuja letni pavšal. Plačljiv vsak mesec, ne glede na to, ali sneži.',
     options: [
@@ -319,6 +322,7 @@ export const DILEMMAS = [
   },
   {
     id: 'mushrooms',
+    season: 'autumn',
     title: 'Gobarska vojna',
     text: 'Gobarji iz Zgornjih Žlamp nam pobirajo jurčke {loc}. Domačini zahtevajo ukrepe.',
     district: 'random',
@@ -450,6 +454,7 @@ export const DILEMMAS = [
   },
   {
     id: 'drought',
+    season: 'summer',
     title: 'Suša',
     text: 'Vrtičkarji pravijo, da so paradižniki v smrtni nevarnosti. Zahtevajo brezplačno vodo za zalivanje.',
     options: [
@@ -759,6 +764,215 @@ export const DILEMMAS = [
         effect: { propaganda: 2 },
         news: 'Gostilničar čaka na dovoljenje. Že tretji mesec. Medtem toči na črno.',
       },
+    ],
+  },
+
+  // --- Yearly events -----------------------------------------------------------
+  {
+    id: 'christmas-fair',
+    yearly: 11,
+    title: 'Božični sejem',
+    text: 'Turistično društvo bi pred cerkvijo postavilo božični sejem: stojnice, kuhano vino in ansambel z zvončki.',
+    options: [
+      {
+        label: 'Organiziraj sejem',
+        effect: { budget: -8000, happy: 8, envy: -4 },
+        news: 'Božični sejem je odprt. Kuhano vino teče, ansambel z zvončki igra že tretjo uro isto pesem.',
+        later: [{ in: 1, effect: { budget: 6000 }, news: 'Božični sejem je prinesel 6.000 € prihodka. In dva primera opeklin s kuhanim vinom.' }],
+      },
+      {
+        label: 'Letos ga ne bo',
+        effect: { happy: -6, envy: 4 },
+        news: 'Božičnega sejma letos ne bo. Občani hodijo na sejem v Zgornje Žlampe in se vračajo slabe volje.',
+      },
+    ],
+  },
+  {
+    id: 'summer-festival',
+    yearly: 6,
+    title: 'Poletni festival',
+    text: 'Tri dni glasbe, piva in pritožb sosedov. Organizatorji računajo na občino. In na lepo vreme.',
+    options: [
+      {
+        label: 'Financiraj festival',
+        effect: { budget: -12000, happy: 10, envy: -5 },
+        news: 'Poletni festival se je začel. Glavni nastopajoči je ansambel, ki ga nihče ne pozna, a vsi znajo njegove pesmi.',
+        later: [
+          {
+            in: 1,
+            chance: 0.75,
+            effect: { budget: 9000 },
+            news: 'Festival je prodal rekordnih 12.000 piv. Prihodek: 9.000 €. Odpadki: neprecenljivi.',
+            elseEffect: { happy: -3 },
+            elseNews: 'Festival je trikrat prekinila nevihta. Nastopajoči so igrali pod šotorom za tri gledalce.',
+          },
+        ],
+      },
+      {
+        label: 'Ni denarja za zabavo',
+        effect: { happy: -5 },
+        news: 'Festivala letos ne bo. Mladina se zabava na avtobusni postaji, ker drugega ni.',
+      },
+    ],
+  },
+
+  // --- Seasonal cards ---------------------------------------------------------
+  {
+    id: 'ice-rink',
+    season: 'winter',
+    title: 'Drsališče na trgu',
+    text: 'Turistično društvo bi pred cerkvijo postavilo drsališče. Elektriko za hlajenje plača občina.',
+    options: [
+      {
+        label: 'Postavi drsališče',
+        effect: { budget: -6000, happy: 5 },
+        news: 'Drsališče pred cerkvijo je odprto. Prvi dan so imeli tri zvine gležnjev in eno zaroko.',
+        later: [
+          {
+            in: 1,
+            chance: 0.4,
+            effect: { budget: -3000 },
+            news: 'Drsališče se je stopilo, ker je bil januar pretopel. Račun za elektriko pa se ni.',
+          },
+        ],
+      },
+      { label: 'Imamo zamrznjen ribnik', effect: { happy: -2 }, news: 'Občina pravi, da je ribnik brezplačno drsališče. Ribe se niso strinjale.' },
+    ],
+  },
+  {
+    id: 'plow-contract',
+    season: 'winter',
+    title: 'Kdo bo plužil?',
+    text: 'Za pluženje sta se prijavila dva: bratranec s starim traktorjem in resen ponudnik iz Zgornjih Žlamp.',
+    options: [
+      {
+        label: 'Bratranec',
+        effect: { secret: 5000, affair: 5 },
+        news: 'Pluženje je dobil bratranec. Traktor je star, a cena je moderna.',
+        later: [
+          {
+            in: 1,
+            chance: 0.5,
+            effect: { happy: -5 },
+            news: 'Bratranec je splužil samo cesto do svoje hiše. In do gostilne.',
+          },
+        ],
+      },
+      {
+        label: 'Ponudnik iz Žlamp',
+        effect: { budget: -3000, happy: 2, envy: 4 },
+        news: 'Naše ceste pluži Žlampovec. Ceste so čiste, ponos pa ranjen.',
+      },
+    ],
+  },
+  {
+    id: 'flower-contest',
+    season: 'spring',
+    title: 'Najlepše urejen kraj',
+    text: 'Občina se lahko prijavi na tekmovanje za najlepše urejen kraj. Komisija pride čez dva meseca.',
+    options: [
+      {
+        label: 'Prijavi se in uredi',
+        effect: { budget: -7000, happy: 3 },
+        news: 'Občani sadijo rože. Nekateri tudi pri sosedih, »da bo enotno«.',
+        later: [
+          {
+            in: 2,
+            chance: 0.5,
+            effect: { propaganda: 8, budget: 5000 },
+            news: 'Zmaga! Naša občina je najlepše urejen kraj. Nagrado so porabili za nove rože.',
+            elseEffect: { envy: 5 },
+            elseNews: 'Zmagale so Zgornje Žlampe. Spet. Komisija je bila menda na kosilu pri njihovem županu.',
+          },
+        ],
+      },
+      { label: 'Lepota je v očeh opazovalca', effect: {}, news: 'Občina se ni prijavila. Regrat ob cesti je ostal neomajen.' },
+    ],
+  },
+  {
+    id: 'spring-cleanup',
+    season: 'spring',
+    title: 'Čistilna akcija',
+    text: 'Društva predlagajo čistilno akcijo »Očistimo občino«. Občina bi plačala rokavice, vreče in malico.',
+    options: [
+      {
+        label: 'Organiziraj akcijo',
+        effect: { budget: -1000, happy: 2, propaganda: 2 },
+        news: 'Na čistilni akciji so našli tri kolesa, en hladilnik in županov plakat iz leta 2014.',
+      },
+      { label: 'Saj je čisto', effect: { envy: 2 }, news: 'Čistilne akcije ne bo. Hladilnik ob potoku ostaja kulturna znamenitost.' },
+    ],
+  },
+  {
+    id: 'swimming-pool',
+    season: 'summer',
+    title: 'Kopališče',
+    text: 'Vroče je. Občani zahtevajo kopališče, saj ga imajo v Zgornjih Žlampah. Seveda.',
+    options: [
+      {
+        label: 'Uredi kopališče',
+        effect: { budget: -25000, happy: 8, modifier: { key: 'pool', label: 'Vzdrževanje kopališča', months: 12, monthlyBudget: -800 } },
+        news: 'Kopališče je odprto. Reševalec iz vode je bratranec, ki ne zna plavati, zna pa piskati.',
+      },
+      { label: 'Imamo potok', effect: { happy: -5, envy: 5 }, news: 'Župan: »Imamo potok.« Potok je globok 20 centimetrov.' },
+    ],
+  },
+  {
+    id: 'hailstorm',
+    season: 'summer',
+    title: 'Toča',
+    text: 'Toča je poškodovala strehe in vrtove. Vrtičkarji jokajo, krovci se smejijo.',
+    options: [
+      {
+        label: 'Pomoč prizadetim',
+        effect: { budget: -10000, happy: 6 },
+        news: 'Občina je razdelila pomoč po toči. Nekateri so prijavili škodo tudi na strehah, ki jih nimajo.',
+      },
+      {
+        label: 'To je višja sila',
+        effect: { happy: -6 },
+        news: 'Župan: »Toča je višja sila.« Prizadeti: »Župan tudi.«',
+        later: [
+          {
+            in: 2,
+            chance: 0.5,
+            effect: { affair: 6 },
+            news: 'Razkrito: razpis za popravilo streh je dobil bratranec. Strehe še vedno niso popravljene.',
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'martinovanje',
+    season: 'autumn',
+    title: 'Martinovanje',
+    text: 'Vinarji bi pred cerkvijo krstili mošt. Pričakujejo, da župan nastopi kot boter. In plača pogostitev.',
+    options: [
+      {
+        label: 'Bodi boter mošta',
+        effect: { budget: -3000, happy: 6 },
+        news: 'Mošt je krščen v vino. Župan je bil boter, pevski zbor je bil glasnejši kot ponavadi.',
+        later: [
+          { in: 1, chance: 0.5, effect: { propaganda: -2 }, news: 'Po martinovanju so v občinski upravi trije na bolniški. Iz »zdravstvenih razlogov«.' },
+        ],
+      },
+      { label: 'Ne pijem', effect: { happy: -3 }, news: 'Župan je zavrnil martinovanje. Vinarji so ga prekrstili v »tistega, ki ne pije«.' },
+    ],
+  },
+  {
+    id: 'chestnut-picnic',
+    season: 'autumn',
+    title: 'Kostanjev piknik',
+    text: 'Društvo upokojencev {loc} bi organiziralo kostanjev piknik. Prosijo za kostanj, mošt in pomoč pri ognju.',
+    district: 'random',
+    options: [
+      {
+        label: 'Plačaj kostanj',
+        effect: { budget: -1500, districtHappy: 6, othersEnvy: 3 },
+        news: 'Kostanjev piknik {loc} je uspel. Ogenj so zakurili trikrat, gasilce poklicali enkrat.',
+      },
+      { label: 'Kostanj raste zastonj', effect: { districtHappy: -4 }, news: 'Upokojenci {loc} nabirajo kostanj sami. In pišejo pritožbe.' },
     ],
   },
 ];

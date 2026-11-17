@@ -4,6 +4,7 @@ import { DILEMMAS } from './content/dilemmas.js';
 import { DISTRICTS, SIZE, idx, districtOf } from './map.js';
 import { applyEffect, describeEffect } from './effects.js';
 import { pick, capitalize, fillTemplate } from './util.js';
+import { seasonOf } from './seasons.js';
 
 /** Districts that contain at least one tile of `type`. */
 function districtsWith(state, type) {
@@ -17,6 +18,8 @@ function districtsWith(state, type) {
 /** Builds a concrete card instance (district, citizen) or null if the card doesn't fit right now. */
 function instantiate(card, state) {
   if (card.when && !card.when(state)) return null;
+  if (card.season && seasonOf(state.month) !== card.season) return null;
+  if (card.yearly != null) return null; // yearly events are drawn separately, see drawDilemma
   let district = null;
   if (card.district === 'random') district = Math.floor(Math.random() * DISTRICTS.length);
   else if (card.district) {
@@ -35,8 +38,19 @@ function instantiate(card, state) {
   return { id: card.id, ctx: { district, citizenId } };
 }
 
-/** Picks the next card. Cards don't repeat until every currently possible card has been shown. */
+/** A yearly event due this month that hasn't been shown this year, or null. */
+export function dueYearlyEvent(state) {
+  const card = DILEMMAS.find((c) => c.yearly === state.month && state.yearlyDone[c.id] !== state.year);
+  return card || null;
+}
+
+/** Picks the next card. Yearly events come first; other cards don't repeat until the pool is used up. */
 export function drawDilemma(state) {
+  const yearly = dueYearlyEvent(state);
+  if (yearly) {
+    state.yearlyDone[yearly.id] = state.year;
+    return { id: yearly.id, ctx: { district: null, citizenId: null } };
+  }
   const tryDraw = () => {
     const fresh = DILEMMAS.filter((c) => !state.usedDilemmas.includes(c.id));
     for (const card of shuffleCopy(fresh)) {

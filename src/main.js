@@ -14,23 +14,49 @@ import { createDevPanel } from './ui/devPanel.js';
 import { toast } from './ui/toast.js';
 import { showTooltip, hideTooltip, escapeHtml } from './ui/tooltip.js';
 import { Music } from './audio/music.js';
+import { Sfx } from './audio/sfx.js';
 import { showDilemma } from './ui/dilemmaCard.js';
 import { showElection, showGameOver } from './ui/election.js';
 import { createWishPanel } from './ui/wishPanel.js';
 import { createCampaignPanel } from './ui/campaignPanel.js';
+import { loadGame, saveGame, clearSave, describeSave } from './game/save.js';
+import { MONTHS } from './game/texts.js';
+import { openModal } from './ui/modal.js';
 
-const game = new Game();
+// A saved game continues where it stopped (paused until the player confirms).
+const storage = (() => {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+})();
+const saved = storage ? loadGame(storage) : null;
+const game = new Game(saved && !saved.over ? saved : null);
 const view = new MapView(document.getElementById('map'), game);
+const sfx = new Sfx();
+// Audio may only start after a user gesture; the first click or key press unlocks the sound effects.
+const unlockSfx = () => {
+  sfx.ready();
+  window.removeEventListener('pointerdown', unlockSfx);
+  window.removeEventListener('keydown', unlockSfx);
+};
+window.addEventListener('pointerdown', unlockSfx);
+window.addEventListener('keydown', unlockSfx);
+
+const LEVER_SOUNDS = { cousin: 'coin', praise: 'paper', neighbor: 'paper', snow: 'chime', party: 'fanfare', media: 'shush', minister: 'clink' };
 const ticker = new NewsTicker(document.getElementById('news'));
 const popup = createCitizenPopup(game, {
   onPayWish: payWish,
   onEnvelope(id) {
     const res = game.giveEnvelope(id);
     toast(res.ok ? res.news : res.reason, res.ok ? 'good' : 'error');
+    sfx.play(res.ok ? 'coin' : 'error');
   },
   onBuyVote(id) {
     const res = game.buyVote(id);
     toast(res.ok ? res.news : res.reason, res.ok ? 'good' : 'error');
+    sfx.play(res.ok ? 'coin' : 'error');
   },
 });
 const devPanel = createDevPanel(document.getElementById('dev-panel'), game);
@@ -47,6 +73,7 @@ const sidebar = createSidebar(document.getElementById('sidebar'), game, {
   onLever(id) {
     const res = game.useLever(id);
     toast(res.ok ? res.toast : res.reason, res.ok ? 'good' : 'error');
+    sfx.play(res.ok ? LEVER_SOUNDS[id] : 'error');
   },
   onNextMonth() {
     game.nextMonth();
@@ -56,7 +83,8 @@ const sidebar = createSidebar(document.getElementById('sidebar'), game, {
 game.on('news', (text) => ticker.push(text));
 // Time runs on its own; the report appears as a corner card. Opening the full report pauses.
 let speedBeforeReport = 0;
-game.on('month', (report) =>
+game.on('month', (report) => {
+  sfx.play(report.damage && report.unrest === 'riot' ? 'fire' : 'bell');
   showMonthCard(report, {
     onOpen() {
       speedBeforeReport = game.state.speed;
@@ -65,12 +93,24 @@ game.on('month', (report) =>
     onClose() {
       if (speedBeforeReport > 0) game.setSpeed(speedBeforeReport);
     },
-  }),
-);
-game.on('unrest', (u) => toast(u.toast, u.level === 'calm' ? 'good' : 'error', 5000));
+  });
+});
+game.on('unrest', (u) => {
+  toast(u.toast, u.level === 'calm' ? 'good' : 'error', 5000);
+  // Protests bring chanting, riots fire and a minor-key polka.
+  sfx.setAmbient(u.level);
+  music.setMinor(u.level === 'riot');
+});
 
 // Dilemma cards pause the game until the mayor decides.
-game.on('dilemma', (card) => showDilemma(card, (i) => game.chooseDilemma(i)));
+function openDilemma(card) {
+  sfx.play('card');
+  showDilemma(card, (i) => {
+    sfx.play('click');
+    game.chooseDilemma(i);
+  });
+}
+game.on('dilemma', openDilemma);
 
 // Wishes: panel on the map, pay from the panel or the citizen popup; building wishes complete themselves.
 function payWish(uid, fromSecret = false) {
@@ -81,27 +121,41 @@ createWishPanel(document.getElementById('wish-panel'), game, {
   onPay: payWish,
   onSelect: (id, e) => popup.open(id, e.clientX, e.clientY),
 });
-game.on('wishes', ({ fulfilled } = {}) => fulfilled?.forEach((n) => toast(n, 'good', 4500)));
+game.on('wishes', ({ fulfilled } = {}) => {
+  if (fulfilled?.length) sfx.play('wish');
+  fulfilled?.forEach((n) => toast(n, 'good', 4500));
+});
 
 // Elections.
 game.on('campaign', ({ opponent, replaced }) => {
   if (!replaced) toast(`Volilna kampanja! Proti vam kandidira ${opponent}. Glasilo zdaj deluje bolje.`, 'info', 6000);
 });
-game.on('election', (result) =>
+function openElection(result) {
+  sfx.play('drumroll');
   showElection(result, {
     onContinue: () => game.acknowledgeElection(),
     onRecount: () => {
-      if (game.requestRecount()) toast('Ponovno štetje: ostajate župan! Nekaj glasovnic je bilo »v kleti«.', 'good', 6000);
+      sfx.play('drumroll');
+      if (game.requestRecount()) {
+        setTimeout(() => sfx.play('win'), 2400);
+        toast('Ponovno štetje: ostajate župan! Nekaj glasovnic je bilo »v kleti«.', 'good', 6000);
+      } else setTimeout(() => sfx.play('lose'), 2400);
     },
     onAccept: () => game.acceptDefeat(),
-  }),
-);
-game.on('gameover', (e) => showGameOver(e));
+    onVerdict: (won) => sfx.play(won ? 'win' : 'lose'),
+  });
+}
+game.on('election', openElection);
+game.on('gameover', (e) => {
+  if (storage) clearSave(storage); // a finished game can't be continued
+  showGameOver(e);
+});
 createCampaignPanel(document.getElementById('campaign-panel'), game, {
   onBribe() {
     const res = game.bribeOpponent();
     if (!res.ok) toast(res.reason, 'error');
     else toast(res.news, res.success ? 'good' : 'error', 6000);
+    sfx.play(res.ok && res.success ? 'coin' : 'error');
   },
 });
 // After any change the forecast under the cursor may be different.
@@ -158,6 +212,7 @@ view.onClick = ({ tile, citizenId, clientX, clientY }) => {
     if (!tile) return;
     const res = game.act(tool, tile.x, tile.y);
     if (!res.ok && res.reason) toast(res.reason, 'error');
+    sfx.play(!res.ok ? 'error' : tool === 'demolish' ? 'demolish' : 'build');
     return;
   }
   if (citizenId != null) popup.open(citizenId, clientX, clientY);
@@ -190,6 +245,12 @@ musicBtn.addEventListener('click', (e) => {
 });
 game.on('party-start', () => music.setParty(true));
 game.on('party-end', () => music.setParty(false));
+// A loaded game may already be in unrest.
+sfx.setAmbient(game.state.unrest);
+music.setMinor(game.state.unrest === 'riot');
+
+const sfxBtn = document.getElementById('sfx-toggle');
+sfxBtn.addEventListener('click', () => sfxBtn.classList.toggle('active', sfx.toggle()));
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
@@ -211,6 +272,7 @@ function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
   game.tick(dt);
+  sfx.setPaused(game.paused); // chants and fire go quiet while paused
   // The citizen popup follows its citizen around the map.
   view.selectedId = popup.currentId;
   if (popup.currentId != null) popup.follow(view.citizenScreenPos(popup.currentId));
@@ -221,7 +283,42 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 
-toast('Dobrodošli, župan! Občani vas imajo radi. Še.', 'good', 5000);
+// ---------------------------------------------------------------------------
+// Saving: automatically every month and whenever the tab is hidden or closed.
+
+function autosave() {
+  if (storage && !game.state.over) saveGame(storage, game.state);
+}
+game.on('month', autosave);
+document.addEventListener('visibilitychange', () => document.hidden && autosave());
+window.addEventListener('pagehide', autosave);
+
+if (game.state === saved) {
+  // Continue screen: the game waits paused until the mayor decides.
+  const speed = game.state.speed || game.state.lastSpeed || 1;
+  game.setSpeed(0);
+  const { el, close } = openModal(
+    `<header><div class="kicker">Shranjena igra</div><h3>Dobrodošli nazaj, župan!</h3></header>
+     <div class="body"><p>Občani so vas pogrešali. Nekateri.</p><p class="muted">${describeSave(game.state, MONTHS)}</p></div>
+     <footer class="election-actions">
+       <button id="continue-game">Nadaljuj</button>
+       <button id="new-game-start" class="secondary">Nova igra</button>
+     </footer>`,
+  );
+  el.querySelector('#continue-game').addEventListener('click', () => {
+    close();
+    game.setSpeed(speed);
+    // Answer whatever was still open when the game was saved.
+    if (game.state.dilemma) openDilemma(game.presentDilemma());
+    else if (game.state.election) openElection(game.state.election);
+  });
+  el.querySelector('#new-game-start').addEventListener('click', () => {
+    if (storage) clearSave(storage);
+    window.location.reload();
+  });
+} else {
+  toast('Dobrodošli, župan! Občani vas imajo radi. Še.', 'good', 5000);
+}
 
 // Debug handle for the browser console (dev server only).
 if (import.meta.env.DEV) window.__obcina = { game, view };

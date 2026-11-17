@@ -7,6 +7,8 @@ import { tileToWorld } from './coords.js';
 
 const DISTRICT_TINTS = ['#8cc063', '#84b85c', '#93c469', '#89b65f'];
 const DISTRICT_SNOW = ['#eef3f6', '#e9eff3', '#f1f5f7', '#ebf0f4'];
+const DISTRICT_AUTUMN = ['#a8b45a', '#a0ad55', '#adb862', '#a5b05b'];
+const DISTRICT_SUMMER = ['#93c45c', '#8bbd55', '#9bc962', '#90bb58'];
 
 export class World {
   constructor(scene, state) {
@@ -26,7 +28,7 @@ export class World {
   }
 
   buildGround() {
-    const outer = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), material('#6f9e4c', '#e3eaee'));
+    const outer = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), material('#6f9e4c', '#e3eaee', {}, { autumn: '#8f9a4a', summer: '#76a64a' }));
     outer.rotation.x = -Math.PI / 2;
     outer.position.y = -0.02;
     outer.receiveShadow = true;
@@ -36,7 +38,7 @@ export class World {
     for (let d = 0; d < 4; d++) {
       const plate = new THREE.Mesh(
         new THREE.BoxGeometry(HALF, 0.1, HALF),
-        material(DISTRICT_TINTS[d], DISTRICT_SNOW[d]),
+        material(DISTRICT_TINTS[d], DISTRICT_SNOW[d], {}, { autumn: DISTRICT_AUTUMN[d], summer: DISTRICT_SUMMER[d] }),
       );
       const cx = (d % 2 === 0 ? -1 : 1) * (HALF / 2);
       const cz = (d < 2 ? -1 : 1) * (HALF / 2);

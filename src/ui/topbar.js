@@ -2,6 +2,7 @@
 // affair risk (+ unrest badge), moods and mayor support.
 
 import { CONFIG } from '../config.js';
+import { SEASONS, seasonOf } from '../game/seasons.js';
 import { MUNICIPALITY, UNREST } from '../game/texts.js';
 import { SPEEDS } from '../game/game.js';
 import { dateLabel } from '../game/month.js';
@@ -60,7 +61,8 @@ export function createTopbar(el, game) {
     const avg = averages(s);
     const balance = monthlyBalance(s);
 
-    q('date').textContent = capitalizeFirst(dateLabel(s));
+    const season = SEASONS[seasonOf(s.month)];
+    q('date').textContent = `${season.icon} ${capitalizeFirst(dateLabel(s))}`;
     q('budget').innerHTML = `<span class="${s.budget < 0 ? 'neg' : ''}">${formatEuro(s.budget)}</span><span class="sub ${balance >= 0 ? 'pos' : 'neg'}">(${formatEuro(balance, { sign: true })}/mes)</span>`;
     q('secret').textContent = formatEuro(s.secret);
     q('affair').textContent = `${s.affair.toFixed(1).replace('.', ',')} %`;

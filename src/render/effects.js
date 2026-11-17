@@ -1,7 +1,7 @@
 // Weather and party effects: snowfall with white landscape, party lights and music notes.
 
 import * as THREE from 'three';
-import { setSnowMaterials, FACTORY_CHIMNEY } from './models.js';
+import { setLandscape, FACTORY_CHIMNEY } from './models.js';
 import { tileToWorld } from './coords.js';
 import { SIZE, idx } from '../game/map.js';
 
@@ -10,6 +10,12 @@ const MAX_FIRES = 2;
 
 const SKY = new THREE.Color('#cfe4ec');
 const SNOW_SKY = new THREE.Color('#dde3e8');
+const SEASON_SKY = {
+  spring: SKY,
+  summer: new THREE.Color('#c3e2f2'),
+  autumn: new THREE.Color('#d8dccb'),
+  winter: SNOW_SKY,
+};
 const FLAKES = 1800;
 const AREA = 13;
 
@@ -91,10 +97,17 @@ export class Effects {
     this.scene.add(this.snow);
   }
 
-  setSnow(on) {
-    this.snow.visible = on;
-    setSnowMaterials(on);
-    this.scene.background.copy(on ? SNOW_SKY : SKY);
+  /**
+   * Season look plus the snow lever. Winter brings a white landscape and light snowfall;
+   * the lever brings a proper blizzard in any season.
+   */
+  setWeather(season, snowLever) {
+    const snowy = snowLever || season === 'winter';
+    this.snow.visible = snowy;
+    this.snow.geometry.setDrawRange(0, snowLever ? FLAKES : Math.floor(FLAKES / 3));
+    this.snow.material.opacity = snowLever ? 0.9 : 0.6;
+    setLandscape(season, snowy);
+    this.scene.background.copy(snowLever ? SNOW_SKY : SEASON_SKY[season]);
   }
 
   startParty(site) {

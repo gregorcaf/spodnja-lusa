@@ -63,7 +63,7 @@ export const DEFAULT_CONFIG = {
   },
 
   time: {
-    secondsPerMonth: 45, // real seconds per in-game month at 1× speed
+    secondsPerMonth: 30, // real seconds per in-game month at 1× speed
   },
 
   // Consequences of a high affair risk.
@@ -156,6 +156,8 @@ export const DEFAULT_CONFIG = {
   audio: {
     musicVolume: 0.35,
     tempo: 126, // quarter notes per minute (polka in 2/4)
+    sfxVolume: 0.5, // sound effects
+    ambientVolume: 0.35, // protest chants and riot fire
   },
 };
 

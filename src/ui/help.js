@@ -85,6 +85,7 @@ export function leverHelp(id, game) {
       lines.push(line('Skrivni račun', formatEuro(c.secret, { sign: true }), 'good'));
       lines.push(line('Tveganje afere', formatSigned(c.affair), 'good'));
       lines.push(line('Trajanje', 'do konca meseca, občani hodijo počasi'));
+      lines.push('<div class="tt-muted">Pozimi sneg nikogar ne preseneti: nič na skrivni račun, tveganje afere ostane, sreča pade le za polovico.</div>');
       break;
     case 'party':
       lines.push(line('Fovšija vseh', `−${(c.envyReduction * m).toFixed(1).replace('.', ',')}`, 'good'));

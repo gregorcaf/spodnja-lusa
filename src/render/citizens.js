@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { CONFIG } from '../config.js';
 import { SIZE, idx, inBounds, isWalkable, districtOf } from '../game/map.js';
 import { moodOf } from '../game/stats.js';
+import { seasonOf } from '../game/seasons.js';
 import { createFigure } from './models.js';
 import { tileToWorld, worldToTile } from './coords.js';
 
@@ -229,7 +230,9 @@ export class CitizenLayer {
   update(dt, hoveredId = null, selectedId = null) {
     this.time += dt;
     const state = this.game.state;
-    const speed = CONFIG.citizens.walkSpeed * (state.snow ? CONFIG.citizens.snowSpeedFactor : 1);
+    // Deep snow from the lever slows people down a lot, ordinary winter a little.
+    const weather = state.snow ? CONFIG.citizens.snowSpeedFactor : seasonOf(state.month) === 'winter' ? 0.75 : 1;
+    const speed = CONFIG.citizens.walkSpeed * weather;
 
     const rioting = state.unrest === 'riot';
     for (const f of this.figures) {
