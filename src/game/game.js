@@ -17,6 +17,8 @@
 //   'election'    result          votes are counted (game is paused)
 //   'gameover'    epilogue        the mayor lost for good
 //   'mapevent'    { phase: 'start' | 'end', ... }   a live event on the map started or finished
+//   'ribbon'      { x, y, kind }  scaffolding gone / ribbon waiting / ribbon cut / opening missed
+//   'party-after' { drunk, incident }  drunk citizens and maybe an incident after the party
 //   'config'      –               CONFIG was edited (dev panel)
 
 import { CONFIG } from '../config.js';
@@ -42,6 +44,11 @@ import {
 } from './elections.js';
 import { UNREST } from './texts.js';
 import { giveEnvelope } from './envelopes.js';
+import { setTaxRate } from './taxes.js';
+import { afterParty, tickDrunk } from './partyIncidents.js';
+import { tickConstruction, cutRibbon, pendingRibbons } from './construction.js';
+import { buyUpgrade } from './upgrades.js';
+import { shakeHands, listen } from './mayor.js';
 import { spawnMapEvent, advanceMapEvent, clickMapEvent, describeMapEvent, nextMapEventDelay } from './mapEvents.js';
 import { randFloat } from './util.js';
 
@@ -96,6 +103,9 @@ export function createState() {
     opponentWithdrawn: false,
     election: null, // result waiting for the player
     over: false,
+
+    taxRate: CONFIG.taxes.start, // € per house per month, set by the mayor
+    lastTaxRate: CONFIG.taxes.start,
 
     stats: { built: 0, roundabouts: 0, parties: 0, cousins: 0, wishesFulfilled: 0, burned: 0 },
   };
@@ -164,6 +174,15 @@ export class Game extends Emitter {
     if (!this.state.party) return;
     this.state.party = null;
     this.emit('party-end');
+    // Alcohol: drunk citizens, and maybe a brawl, a crashed tanker, a photo or a hangover.
+    const after = afterParty(this.state);
+    if (after.incident) {
+      for (const t of after.incident.tiles) this.emit('tile', t);
+      if (after.incident.tiles.length) this.afterTilesChanged();
+      this.emit('news', after.incident.news);
+      this.refreshUnrest();
+    }
+    this.emit('party-after', after);
     this.emit('state');
   }
 
@@ -217,6 +236,54 @@ export class Game extends Emitter {
     if (news) this.emit('news', news);
     this.refreshUnrest();
     this.emit('state');
+  }
+
+  // --- Buildings: ribbons and upgrades --------------------------------------
+
+  pendingRibbons() {
+    return pendingRibbons(this.state);
+  }
+
+  cutRibbon(x, y) {
+    const res = cutRibbon(this.state, x, y);
+    if (!res.ok) return res;
+    this.emit('tile', { x, y });
+    this.emit('news', res.news);
+    this.emit('ribbon', { x, y, kind: 'cut', news: res.news });
+    this.emit('state');
+    return res;
+  }
+
+  buyUpgrade(x, y, id) {
+    const res = buyUpgrade(this.state, x, y, id);
+    if (!res.ok) return res;
+    this.emit('tile', { x, y });
+    this.emit('news', res.news);
+    this.emit('state');
+    return res;
+  }
+
+  // --- The mayor in person --------------------------------------------------
+
+  shakeHands(citizenId) {
+    const res = shakeHands(this.state, citizenId);
+    this.emit('state');
+    return res;
+  }
+
+  listen(citizenId) {
+    const res = listen(this.state, citizenId);
+    if (res.wish) this.emit('wishes', {});
+    this.emit('state');
+    return res;
+  }
+
+  // --- Taxes ---------------------------------------------------------------
+
+  setTaxRate(rate) {
+    setTaxRate(this.state, rate);
+    this.emit('state');
+    return this.state.taxRate;
   }
 
   // --- Live map events -----------------------------------------------------
@@ -384,6 +451,14 @@ export class Game extends Emitter {
         if (s.dilemma) this.emit('dilemma', this.presentDilemma());
       }
 
+      // Scaffolding comes down; ribbons wait for the mayor.
+      for (const ch of tickConstruction(s, months)) {
+        this.emit('tile', { x: ch.x, y: ch.y });
+        if (ch.news) this.emit('news', ch.news);
+        this.emit('ribbon', ch);
+        if (ch.kind === 'missed') this.emit('state');
+      }
+
       // Live events on the map: one at a time.
       if (s.mapEvent) {
         const res = advanceMapEvent(s, months);
@@ -406,6 +481,7 @@ export class Game extends Emitter {
 
     // While paused (or waiting for a decision) the whole municipality holds still.
     if (this.paused) return;
+    tickDrunk(s, dt);
     if (tickThoughts(s, dt)) this.emit('thoughts');
     const p = s.party;
     if (p) {
@@ -419,9 +495,4 @@ export class Game extends Emitter {
     return this.state.speed === 0 || this.blocked;
   }
 
-  configChanged() {
-    this.refreshUnrest(); // thresholds may have moved
-    this.emit('config');
-    this.emit('state');
-  }
 }

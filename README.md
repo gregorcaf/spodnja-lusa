@@ -13,7 +13,7 @@ The game saves itself in the browser (localStorage) every month and when the tab
 
 ```
 src/
-  config.js        CONFIG – every tunable number (also edited by the dev panel)
+  config.js        CONFIG – every tunable number (balance lives here)
   main.js          wires game ↔ render ↔ UI, main loop
   game/            pure game logic, no Three.js / DOM
     game.js        Game facade + events (tile, state, news, snow, party-*, month, config)
@@ -31,6 +31,10 @@ src/
     envelopes.js   loyalty envelopes (secret account)
     seasons.js     seasons from the month
     mapEvents.js   live map events (bear, tractor, wedding, fire, journalist)
+    taxes.js       house tax set by the player: money vs. mood
+    construction.js  scaffolding and ribbon-cutting openings
+    upgrades.js    building upgrades (content in content/upgrades.js)
+    mayor.js       the mayor in person: handshakes, listening
     save.js        save/load (JSON snapshot of the state)
     content/       dilemma cards and wishes (Slovenian text)
     stats.js       mood, support, averages, income/expenses
@@ -46,12 +50,13 @@ src/
     effects.js     snow, party lights and notes
     labels.js      HTML district labels, thought bubbles, event marker
     mapEvents.js   animated actors for live map events
+    mayor.js       the mayor walking on the map (click to walk, follows targets)
   audio/          everything synthesised with Web Audio (no audio files)
     music.js       original polka (minor key during riots)
     sfx.js         sound effects and protest/riot ambience
     context.js     shared audio context
-  ui/              HTML interface (top bar, sidebar, ticker, popup, report, dev panel)
-tests/             node --test suites (rules, levers, unrest/elections, content, save/seasons, map events, balance)
+  ui/              HTML interface (top bar, sidebar with tax control, ticker, citizen popup, building panel, report)
+tests/             node --test suites (rules, levers, unrest/elections, content, save/seasons, map events, taxes, village, balance)
 ```
 
 In dev mode `window.__obcina` exposes `{ game, view }` for debugging.

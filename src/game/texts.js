@@ -22,13 +22,13 @@ export const BUILDINGS = {
 };
 
 export const TOOL_INFO = {
-  inspect: { name: 'Opazuj', icon: '🔍', note: 'klik na občana' },
-  road: { name: 'Cesta', icon: '🛣️', note: 'na travnik' },
+  inspect: { name: 'Na teren', icon: '🎩', note: 'ljudje · stavbe · sprehod' },
+  road: { name: 'Cesta', icon: '🛣️', note: '' },
   house: { name: 'Hiša', icon: '🏠', note: 'davek' },
-  roundabout: { name: 'Krožišče', icon: '⭕', note: 'samo na cesto, s kipom' },
-  firehouse: { name: 'Gasilski dom', icon: '🚒', note: 'na travnik' },
-  hall: { name: 'Večnamenska dvorana', icon: '🏟️', note: 'na travnik' },
-  inn: { name: 'Gostilna', icon: '🍺', note: 'na travnik' },
+  roundabout: { name: 'Krožišče', icon: '⭕', note: 'na cesto' },
+  firehouse: { name: 'Gasilski dom', icon: '🚒', note: '' },
+  hall: { name: 'Večnamenska dvorana', icon: '🏟️', note: '' },
+  inn: { name: 'Gostilna', icon: '🍺', note: '' },
   factory: { name: 'Tovarna', icon: '🏭', note: 'smrdi' },
   demolish: { name: 'Podiranje', icon: '🚜', note: 'cerkve ne' },
 };
@@ -134,6 +134,22 @@ export const THOUGHTS = {
     'Kandidira {opponent}. Hm. Ne vem, ne vem.',
     'Na plakatu je župan videti mlajši. Fotošop ali čudež?',
     'Kdo bo dal več obljub, ta bo dobil moj glas.',
+  ],
+  highTax: [
+    'Davki so spet višji. Kmalu bom plačeval{|a} še za sence na dvorišču.',
+    'V Žlampah imajo nižje davke. In slabše ceste. Ampak nižje davke.',
+    'Položnica je prišla. Sedel{|a} sem, preden sem jo odprl{|a}.',
+  ],
+  lowTax: [
+    'Davki so nizki. Kdo bo pa plačal ceste? Ah, saj ni moja skrb.',
+    'Letos sem s prihranjenim davkom kupil{|a} novo kosilnico. In jo takoj posodil{|a} sosedu.',
+  ],
+  drunk: [
+    'Hik! Še enega za pot!',
+    'Ti si moj najboljši prijatelj. Kako ti je že ime?',
+    'Kje sem pustil{|a} kolo? Kje sem pustil{|a} hišo?',
+    'Ta cesta je bila včeraj bolj ravna.',
+    'Župan je car! Hik! Zjutraj bom premislil{|a}.',
   ],
   propaganda: [
     'V glasilu piše, da je župan zgradil več kot Rimljani.',
@@ -310,7 +326,7 @@ export const LEVER_TEXTS = {
   party: {
     name: 'Gasilska veselica',
     icon: '🎉',
-    desc: 'Vsi na ples k gasilskemu domu. Fovšija dol, sreča gor, tveganje afere −5.',
+    desc: 'Vsi na ples k gasilskemu domu. Fovšija dol, sreča gor, tveganje afere −5. Pozor: alkohol.',
     news: [
       'Gasilska veselica: ansambel je igral do treh, šotor je stal do štirih, gasilci so stali do petih.',
       'Na veselici so prodali 400 klobas in 900 piv. Gasilska cisterna je bila uporabljena za hlajenje.',
@@ -372,6 +388,22 @@ export const BURN_NEWS = {
   roundabout: 'Protestniki so {loc} prevrnili kip v krožišču. Ostala je le cesta in pločevinka barve.',
   inn: 'Med neredi je {loc} zgorela gostilna. Gostje so vztrajali do zadnjega piva.',
   factory: 'Med neredi je {loc} zgorela tovarna. Sosedje pravijo, da smrdi enako kot prej.',
+};
+
+export const TAX_NEWS = {
+  raised: [
+    'Občina je davek na hišo dvignila na {rate}. Občani so odlok prvič v zgodovini prebrali do konca.',
+    'Novi davek na hišo: {rate}. V Facebook skupini so v eni uri napisali 300 komentarjev in en pravilen.',
+  ],
+  lowered: [
+    'Občina je znižala davek na hišo na {rate}. Občani sumijo, da se pripravlja nekaj velikega.',
+    'Davek na hišo je odslej {rate}. Upokojenci so to proslavili z dodatno kavo.',
+  ],
+  veryHigh: [
+    'Davki so višji kot v Zgornjih Žlampah. Tam to radi poudarjajo.',
+    'Občan je davčno položnico uokviril in obesil v dnevno sobo. »Za spomin, kako je bilo, ko sem še imel denar.«',
+    'Na avtobusni postaji se je pojavil napis: »Davek na hišo, davek na zrak, kaj je naslednje?«',
+  ],
 };
 
 // Protest damage (milder than riots: nothing burns).

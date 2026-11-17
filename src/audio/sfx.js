@@ -267,6 +267,24 @@ const EFFECTS = {
   tractor: (s) => {
     for (let i = 0; i < 8; i++) s.tone({ type: 'square', hz: 55, t: i * 0.09, dur: 0.07, gain: 0.1 });
   },
+  // Scissors cutting the ribbon, then applause.
+  snip: (s) => {
+    s.burst({ dur: 0.05, gain: 0.3, type: 'highpass', hz: 4000 });
+    s.burst({ t: 0.12, dur: 0.05, gain: 0.3, type: 'highpass', hz: 4500 });
+    for (let i = 0; i < 18; i++) s.burst({ t: 0.3 + Math.random() * 0.9, dur: 0.03, gain: 0.12, hz: 1500, q: 0.7 });
+  },
+  // A brawl: a couple of dull punches.
+  punch: (s) => {
+    for (let i = 0; i < 4; i++) {
+      s.tone({ hz: 110, t: i * 0.22 + Math.random() * 0.05, dur: 0.1, gain: 0.3, glideTo: 50 });
+      s.burst({ t: i * 0.22, dur: 0.04, gain: 0.2, type: 'lowpass', hz: 600 });
+    }
+  },
+  // A friendly double pat on the shoulder.
+  pat: (s) => {
+    s.tone({ type: 'triangle', hz: 220, dur: 0.08, gain: 0.15 });
+    s.tone({ type: 'triangle', hz: 260, t: 0.12, dur: 0.1, gain: 0.15 });
+  },
   // Journalist: camera shutter.
   camera: (s) => {
     s.burst({ dur: 0.04, gain: 0.35, type: 'highpass', hz: 2000 });

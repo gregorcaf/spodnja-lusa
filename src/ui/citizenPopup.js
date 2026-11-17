@@ -11,7 +11,7 @@ import { formatEuro } from '../game/util.js';
 
 const DOT = { happy: '#5cc24f', neutral: '#f2c230', unhappy: '#e0473a' };
 
-export function createCitizenPopup(game, { onPayWish, onBuyVote, onEnvelope } = {}) {
+export function createCitizenPopup(game, { onPayWish, onBuyVote, onEnvelope, onShake, onListen } = {}) {
   const el = document.getElementById('citizen-popup');
   let currentId = null;
 
@@ -36,6 +36,10 @@ export function createCitizenPopup(game, { onPayWish, onBuyVote, onEnvelope } = 
         <div class="bar envy"><div style="width:${c.envy}%"></div></div>
         <div class="cp-thought">»${escapeHtml(c.thought)}«</div>
         <div class="cp-envy"><span class="k">Fovšen${c.female ? 'a' : ''} je:</span> ${escapeHtml(envyTargetLabel(c))}</div>
+        <div class="cp-mayor">
+          <button class="cp-shake" title="Župan stopi do občana in mu stisne roko">🤝 Rokuj se</button>
+          <button class="cp-listen" title="Župan prisluhne – včasih iz tega nastane želja">👂 Prisluhni</button>
+        </div>
         ${statusHtml(c, s)}
       </div>`;
     el.querySelector('.cp-close').addEventListener('click', close);
@@ -43,6 +47,8 @@ export function createCitizenPopup(game, { onPayWish, onBuyVote, onEnvelope } = 
       b.addEventListener('click', () => onPayWish?.(b.dataset.uid, b.dataset.secret === '1')),
     );
     el.querySelector('.cp-envelope')?.addEventListener('click', () => onEnvelope?.(c.id));
+    el.querySelector('.cp-shake').addEventListener('click', () => onShake?.(c.id));
+    el.querySelector('.cp-listen').addEventListener('click', () => onListen?.(c.id));
     el.querySelector('.cp-buy')?.addEventListener('click', () => onBuyVote?.(c.id));
   }
 

@@ -4,6 +4,7 @@ import { CONFIG } from '../config.js';
 import { DISTRICTS, districtOf, idx, inBounds } from './map.js';
 import { BUILD_ERRORS, NO_MONEY, BUILD_NEWS, DEMOLISH_NEWS, BUILDINGS, BUILDING_GENITIVE } from './texts.js';
 import { applyDistrictEffect } from './envy.js';
+import { startConstruction } from './construction.js';
 import { pick, capitalize, fillTemplate, formatEuro, formatSigned } from './util.js';
 
 export const BUILD_TOOLS = ['road', 'house', 'roundabout', 'firehouse', 'hall', 'inn', 'factory'];
@@ -100,6 +101,7 @@ export function performAction(state, tool, x, y) {
   }
 
   state.grid[idx(x, y)] = { type: tool, variant: Math.floor(Math.random() * 1000) };
+  startConstruction(state.grid[idx(x, y)]);
   state.stats.built += 1;
   if (tool === 'roundabout') state.stats.roundabouts += 1;
   applyDistrictEffect(state, districtId, effect, tool);

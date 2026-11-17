@@ -223,6 +223,17 @@ export class CitizenLayer {
     f.path.push(spot.clone());
   }
 
+  /** Two citizens stop and square up to each other for a few seconds (party brawl). */
+  brawl(id1, id2, seconds = 4) {
+    const a = this.figures[id1];
+    const b = this.figures[id2];
+    const mid = a.pos.clone().add(b.pos).multiplyScalar(0.5);
+    for (const [f, side] of [[a, -1], [b, 1]]) {
+      f.path = [mid.clone().add(new THREE.Vector3(side * 0.15, 0, 0))];
+      f.brawlFor = seconds;
+    }
+  }
+
   /** Positions of figures currently dancing (for music-note effects). */
   dancers() {
     return this.figures.filter((f) => f.mode === 'party' && !f.path.length).map((f) => f.pos);
@@ -268,7 +279,8 @@ export class CitizenLayer {
         const dz = target.z - f.pos.z;
         const dist = Math.hypot(dx, dz);
         // Partygoers and protesters hurry a bit.
-        const hurry = f.fleeing ? 2.4 : f.mode === 'wander' ? 1 : 1.6;
+        // Drunk citizens stagger slowly; frightened ones run.
+        const hurry = f.fleeing ? 2.4 : c.drunk > 0 ? 0.55 : f.mode === 'wander' ? 1 : 1.6;
         const step = speed * f.speedJitter * hurry * dt;
         if (dist <= step) {
           f.pos.set(target.x, 0, target.z);
@@ -276,12 +288,23 @@ export class CitizenLayer {
         } else {
           f.pos.x += (dx / dist) * step;
           f.pos.z += (dz / dist) * step;
+          if (c.drunk > 0) {
+            // Zigzag sideways across the road.
+            const sway = Math.sin(this.time * 4 + f.phase) * 0.012;
+            f.pos.x += (-dz / dist) * sway;
+            f.pos.z += (dx / dist) * sway;
+          }
         }
         if (dist > 0.001) f.group.rotation.y = Math.atan2(dx, dz);
         // Little walking bob.
         f.inner.position.y = Math.abs(Math.sin(this.time * 10 * speed + f.phase)) * 0.025;
         f.inner.rotation.y = 0;
-        f.inner.rotation.z = 0;
+        f.inner.rotation.z = c.drunk > 0 ? Math.sin(this.time * 3 + f.phase) * 0.35 : 0;
+      } else if (f.brawlFor > 0) {
+        // Fighting: hop and lunge.
+        f.brawlFor -= dt;
+        f.inner.position.y = Math.abs(Math.sin(this.time * 12 + f.phase)) * 0.08;
+        f.inner.rotation.z = Math.sin(this.time * 9 + f.phase) * 0.4;
       } else if (f.mode === 'party') {
         // Dance: hop and spin.
         f.inner.position.y = Math.abs(Math.sin(this.time * 7 + f.phase)) * 0.12;

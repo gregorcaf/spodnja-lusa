@@ -183,6 +183,7 @@ function roundabout() {
   const arm = box(0.02, 0.12, 0.02, M.statue, 0.05, 0.33, 0);
   arm.rotation.z = -0.5;
   statue.add(arm);
+  statue.name = 'statue';
   g.add(statue);
   return g;
 }
@@ -266,9 +267,160 @@ function factory() {
 const BUILDERS = { road, house, church, roundabout, firehouse, hall, inn, factory };
 
 /** Returns a new Object3D for the given tile type, or null for grass. */
-export function createModel(type, variant = 0) {
+/** Returns a new Object3D for the given tile type (with its upgrades), or null for grass. */
+export function createModel(type, variant = 0, upgrades = []) {
   const fn = BUILDERS[type];
-  return fn ? fn(variant) : null;
+  if (!fn) return null;
+  const model = fn(variant);
+  if (upgrades.length) decorate(model, type, upgrades);
+  return model;
+}
+
+// ---------------------------------------------------------------------------
+// Upgrades: small visible changes on the building (see game/content/upgrades.js)
+
+const UP = {
+  facade: material('#fff6e0'),
+  flowerRed: material('#e0414a'),
+  flowerPink: material('#ef8fbf'),
+  water: new THREE.MeshLambertMaterial({ color: '#7cc7ef', transparent: true, opacity: 0.85 }),
+  fireRed: material('#d12f25'),
+  tent: material('#f4f1ea'),
+  banner: material('#2f8f5b'),
+  metal: material('#a7adb3'),
+  speaker: material('#1f1f1f'),
+  beam: new THREE.MeshBasicMaterial({ color: '#fff3b0', transparent: true, opacity: 0.35, depthWrite: false }),
+};
+
+function decorate(g, type, upgrades) {
+  const has = (id) => upgrades.includes(id);
+  switch (type) {
+    case 'house':
+      if (has('facade')) g.traverse((o) => o.isMesh && WALLS.includes(o.material) && (o.material = UP.facade));
+      if (has('flowers')) {
+        g.add(box(0.12, 0.04, 0.05, UP.flowerRed, -0.15, 0.1, 0.3));
+        g.add(box(0.12, 0.04, 0.05, UP.flowerPink, 0.15, 0.1, 0.3));
+      }
+      break;
+    case 'roundabout':
+      if (has('statue')) g.getObjectByName('statue').scale.setScalar(1.8);
+      if (has('fountain')) {
+        g.add(cylinder(0.27, 0.27, 0.1, UP.water, 20, 0.02));
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * Math.PI * 2;
+          const jet = cylinder(0.01, 0.015, 0.16, UP.water, 5, 0.1);
+          jet.position.x = Math.cos(a) * 0.2;
+          jet.position.z = Math.sin(a) * 0.2;
+          g.add(jet);
+        }
+      }
+      break;
+    case 'firehouse':
+      if (has('tanker')) {
+        g.add(box(0.3, 0.14, 0.14, UP.fireRed, -0.2, 0, 0.42));
+        g.add(box(0.2, 0.06, 0.1, UP.metal, -0.24, 0.14, 0.42));
+      }
+      if (has('tent')) g.add(at(cone(0.3, 0.3, UP.tent, 4, 0), -0.35, -0.35));
+      break;
+    case 'hall':
+      if (has('gym')) {
+        g.add(box(0.02, 0.4, 0.02, UP.metal, 0.38, 0, 0.47));
+        g.add(box(0.16, 0.1, 0.01, UP.banner, 0.3, 0.3, 0.47));
+      }
+      if (has('aircon')) g.add(box(0.14, 0.08, 0.1, UP.metal, -0.25, 0.55, 0.1));
+      break;
+    case 'inn':
+      if (has('linden')) g.add(at(tree(1.5, 0), -0.32, -0.34));
+      if (has('band')) {
+        g.add(box(0.07, 0.12, 0.07, UP.speaker, 0.3, 0, 0.42));
+        g.add(box(0.07, 0.12, 0.07, UP.speaker, -0.3, 0, 0.42));
+      }
+      break;
+    case 'factory':
+      if (has('filter')) g.add(at(cylinder(0.08, 0.08, 0.1, UP.metal, 10, 1.03), 0.3, -0.24));
+      if (has('line')) g.add(box(0.3, 0.26, 0.32, M.factoryWall, -0.3, 0, -0.36));
+      break;
+    case 'church':
+      if (has('tower')) g.traverse((o) => o.isMesh && o.material === M.spire && (o.material = M.gold));
+      if (has('lights')) {
+        for (const x of [-0.3, 0.3]) {
+          const b = new THREE.Mesh(new THREE.ConeGeometry(0.12, 1.1, 10, 1, true), UP.beam);
+          b.position.set(x, 0.55, 0.45);
+          b.rotation.z = x > 0 ? 0.25 : -0.25;
+          g.add(b);
+        }
+      }
+      break;
+    default:
+      break;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Construction site and opening ceremony
+
+const SCAFFOLD = material('#c8a165');
+const NET = new THREE.MeshLambertMaterial({ color: '#f08a24', transparent: true, opacity: 0.35, depthWrite: false });
+const RIBBON = material('#d8262e', null, { emissive: '#3a0505' });
+
+/** Wooden scaffolding with an orange safety net around the tile. */
+export function createScaffolding(height = 0.7) {
+  const g = new THREE.Group();
+  const s = 0.45;
+  for (const [x, z] of [[-s, -s], [s, -s], [-s, s], [s, s], [0, s], [0, -s]]) g.add(box(0.025, height, 0.025, SCAFFOLD, x, 0, z));
+  for (const y of [height * 0.35, height * 0.7, height - 0.02]) {
+    g.add(box(0.92, 0.02, 0.025, SCAFFOLD, 0, y, s));
+    g.add(box(0.92, 0.02, 0.025, SCAFFOLD, 0, y, -s));
+    g.add(box(0.025, 0.02, 0.92, SCAFFOLD, s, y, 0));
+    g.add(box(0.025, 0.02, 0.92, SCAFFOLD, -s, y, 0));
+  }
+  const net = new THREE.Mesh(new THREE.BoxGeometry(0.94, height * 0.9, 0.94), NET);
+  net.position.y = height * 0.45;
+  g.add(net);
+  return g;
+}
+
+/** Two posts with a red ribbon and a bow at the front of the tile. */
+export function createRibbon() {
+  const g = new THREE.Group();
+  g.add(box(0.025, 0.22, 0.025, M.pedestal, -0.42, 0, 0.5));
+  g.add(box(0.025, 0.22, 0.025, M.pedestal, 0.42, 0, 0.5));
+  g.add(box(0.84, 0.035, 0.01, RIBBON, 0, 0.17, 0.5));
+  const bow = cone(0.05, 0.08, RIBBON, 4, 0.14);
+  bow.position.z = 0.5;
+  bow.rotation.z = Math.PI / 2;
+  g.add(bow);
+  return g;
+}
+
+// ---------------------------------------------------------------------------
+// The mayor: dark suit, gold chain, a little taller than everyone else
+
+export function createMayorFigure() {
+  const g = new THREE.Group();
+  const inner = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.095, 0.25, 8), material('#23262d'));
+  body.position.y = 0.125;
+  body.castShadow = true;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.065, 10, 8), M.skin);
+  head.position.y = 0.315;
+  head.castShadow = true;
+  const chain = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.012, 6, 16), M.gold);
+  chain.position.set(0.02, 0.22, 0);
+  chain.rotation.set(Math.PI / 2.4, 0, Math.PI / 2);
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.067, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2.2), material('#5a4a3a'));
+  hair.position.y = 0.32;
+  inner.add(body, head, chain, hair);
+  // A golden ring on the ground so you can always find him.
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(0.16, 0.2, 24),
+    new THREE.MeshBasicMaterial({ color: '#f2c230', transparent: true, opacity: 0.8 }),
+  );
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = 0.06;
+  g.add(inner, ring);
+  g.scale.setScalar(1.25);
+  return { group: g, inner, ring };
 }
 
 // ---------------------------------------------------------------------------

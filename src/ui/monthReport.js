@@ -54,7 +54,7 @@ export function showMonthReport(r, { onOpen, onClose } = {}) {
         ${unrestRow}
         <table>
           <tr><td>Osnovni prihodki</td><td>${formatEuro(r.income.base)}</td></tr>
-          <tr><td>Davki <span class="muted">(${r.income.houses} hiš)</span></td><td>${formatEuro(r.income.taxes)}</td></tr>
+          <tr><td>Davki <span class="muted">(${r.income.houses} hiš × ${formatEuro(r.income.rate)})</span></td><td>${formatEuro(r.income.taxes)}</td></tr>
           ${r.income.business ? `<tr><td>Gostilne in tovarne</td><td>${formatEuro(r.income.business)}</td></tr>` : ''}
           ${r.income.strike ? `<tr class="neg-ink"><td>Davčna stavka protestnikov</td><td>${formatEuro(-r.income.strike)}</td></tr>` : ''}
           <tr><td>Plače in kava občinske uprave</td><td>${formatEuro(-r.expenses.base)}</td></tr>

@@ -5,6 +5,7 @@ import { DISTRICTS, SIZE, idx, districtOf } from './map.js';
 import { BURN_NEWS, VANDAL_NEWS } from './texts.js';
 import { clampCitizen } from './citizens.js';
 import { moodScore } from './stats.js';
+import { taxRate, taxLevel } from './taxes.js';
 import { pick, capitalize, fillTemplate } from './util.js';
 
 const MIN_PROTESTERS = 5;
@@ -26,7 +27,9 @@ export function assignProtesters(state) {
 
   const sorted = [...state.citizens].sort((a, b) => moodScore(a, state) - moodScore(b, state));
   // Riot: almost everyone. Protest: the unhappy and undecided, plus every Facebook commenter.
-  const cutoff = level === 'riot' ? 70 : CONFIG.mood.greenAbove;
+  // A very high tax drives even fairly content people onto the street.
+  const taxAnger = taxLevel(taxRate(state)) === 'veryHigh' ? CONFIG.taxes.protestBoost : 0;
+  const cutoff = (level === 'riot' ? 70 : CONFIG.mood.greenAbove) + taxAnger;
   for (const c of sorted) {
     if (moodScore(c, state) < cutoff || c.character === 'commenter') c.protesting = true;
   }

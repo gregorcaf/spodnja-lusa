@@ -18,6 +18,7 @@ export class Labels {
     this.container = container;
     this.camera = camera;
     this.tmp = new THREE.Vector3();
+    this.tmp2 = new THREE.Vector3();
 
     this.districtEls = DISTRICTS.map((d, i) => {
       const el = document.createElement('div');
@@ -30,6 +31,60 @@ export class Labels {
     this.bubble = null; // { el, citizenId, remaining }
     this.bubbleTimer = 2;
     this.wishMarkers = new Map(); // citizenId -> element
+  }
+
+  /** ✂️ markers with a countdown above buildings waiting for the ribbon to be cut. */
+  updateRibbonMarkers(list) {
+    this.ribbonMarkers ??= new Map();
+    const keep = new Set();
+    for (const r of list) {
+      const key = `${r.x},${r.y}`;
+      keep.add(key);
+      let el = this.ribbonMarkers.get(key);
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'event-marker ribbon-marker';
+        el.innerHTML = '<div class="em-icon">✂️</div><div class="em-bar"><div></div></div>';
+        this.container.appendChild(el);
+        this.ribbonMarkers.set(key, el);
+      }
+      const bar = el.querySelector('.em-bar > div');
+      bar.style.width = `${(Math.max(0, r.left) * 100).toFixed(1)}%`;
+      bar.classList.toggle('low', r.left < 0.3);
+      this.place(el, this.tmp2.set(r.x - 7.5, 1.0, r.y - 7.5));
+    }
+    for (const [key, el] of this.ribbonMarkers) {
+      if (!keep.has(key)) {
+        el.remove();
+        this.ribbonMarkers.delete(key);
+      }
+    }
+  }
+
+  /** A short floating emoji (🤝, ✂️ …) above something that may move. */
+  emote(text, getWorldPos, seconds = 1.6) {
+    const el = document.createElement('div');
+    el.className = 'emote';
+    el.textContent = text;
+    this.container.appendChild(el);
+    (this.emotes ??= []).push({ el, getWorldPos, remaining: seconds, total: seconds });
+  }
+
+  updateEmotes(dt) {
+    if (!this.emotes) return;
+    for (let i = this.emotes.length - 1; i >= 0; i--) {
+      const e = this.emotes[i];
+      e.remaining -= dt;
+      const p = e.getWorldPos();
+      if (e.remaining <= 0 || !p) {
+        e.el.remove();
+        this.emotes.splice(i, 1);
+        continue;
+      }
+      const rise = (1 - e.remaining / e.total) * 0.4;
+      this.place(e.el, this.tmp2.set(p.x, 0.7 + rise, p.z));
+      e.el.style.opacity = String(Math.min(1, e.remaining * 2));
+    }
   }
 
   /** Bouncing marker with icon and a countdown bar above the current map event. */

@@ -5,6 +5,7 @@ import { CONFIG } from '../config.js';
 import { TOOL_INFO, LEVER_TEXTS } from '../game/texts.js';
 import { formatEuro, formatSigned } from '../game/util.js';
 import { escapeHtml } from './tooltip.js';
+import { taxRate, taxHappiness } from '../game/taxes.js';
 
 const BUILDING_DESC = {
   road: 'Po cestah se sprehajajo občani. Brez ceste ni sprehoda, brez sprehoda ni opravljanja sosedov.',
@@ -31,11 +32,11 @@ const line = (label, value, cls = '') => `<div class="tt-line ${cls}"><span>${la
 const pct = (m) => `${Math.round(m * 100)} %`;
 
 /** Help for a build tool. */
-export function toolHelp(id) {
+export function toolHelp(id, game) {
   const info = TOOL_INFO[id];
   if (id === 'inspect') {
     return `<div class="tt-title">${info.icon} ${info.name}</div>
-      <div class="tt-desc">Klikni na občana in poglej, kaj misli, kako je zadovoljen, na koga je fovšen in kaj si želi.</div>`;
+      <div class="tt-desc">Župan gre med ljudi. Klikni občana (kaj misli, kaj si želi, rokovanje), stavbo (izboljšave, otvoritev) ali cesto, da se župan sprehodi tja. Po vsaki gradnji se igra samodejno vrne sem.</div>`;
   }
   if (id === 'demolish') {
     return `<div class="tt-title">${info.icon} ${info.name}</div>
@@ -46,7 +47,7 @@ export function toolHelp(id) {
   const monthly = b.income
     ? line('Prihodek', `${formatEuro(b.income, { sign: true })}/mes`, 'good')
     : id === 'house'
-      ? line('Davek', `${formatEuro(CONFIG.economy.taxPerHouse, { sign: true })}/mes`, 'good')
+      ? line('Davek', `${formatEuro(taxRate(game.state), { sign: true })}/mes`, 'good')
       : line('Vzdrževanje', `${formatEuro(-b.upkeep)}/mes`);
   return `<div class="tt-title">${info.icon} ${info.name}</div>
     <div class="tt-desc">${BUILDING_DESC[id]}</div>
@@ -133,4 +134,16 @@ export function statHelp(key) {
   if (!h) return null;
   const text = typeof h[1] === 'function' ? h[1]() : h[1];
   return `<div class="tt-title">${h[0]}</div><div class="tt-desc">${text}</div>`;
+}
+
+/** Help for the tax control in the sidebar. */
+export function taxHelp(game) {
+  const t = CONFIG.taxes;
+  const rate = taxRate(game.state);
+  return `<div class="tt-title">🏠 Davek na hišo</div>
+    <div class="tt-desc">Koliko vsaka hiša mesečno plača občini. Več davka pomeni več denarja, a tudi bolj sitne občane.</div>
+    ${line('Zdaj', `${formatEuro(rate)} na hišo`)}
+    ${line('Vpliv na srečo', `${formatSigned(taxHappiness(rate), 1)} na mesec`, taxHappiness(rate) < 0 ? 'bad' : 'good')}
+    <div class="tt-muted">Pri ${formatEuro(t.neutral)} je davek »normalen«. Vsakih 100 € več vzame ${String(t.happyPer100).replace('.', ',')} sreče na mesec, manj jo doda.</div>
+    <div class="tt-muted">Od ${formatEuro(t.highAt)} občani godrnjajo, od ${formatEuro(t.veryHighAt)} besnijo: dodatna fovšija in več ljudi na protestih.</div>`;
 }
