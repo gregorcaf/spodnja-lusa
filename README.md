@@ -9,6 +9,11 @@ npm test                     # game logic, content and balance tests (Node's bui
 
 The game saves itself in the browser (localStorage) every month and when the tab is closed.
 
+## Map
+
+A 32×32 grid: the original municipality (16×16, four quarters) in the middle, and eight 8×8
+plots around it that can be bought as new hamlets (district ids 4–11).
+
 ## Structure
 
 ```
@@ -31,7 +36,10 @@ src/
     envelopes.js   loyalty envelopes (secret account)
     seasons.js     seasons from the month
     mapEvents.js   live map events (bear, tractor, wedding, fire, journalist)
-    taxes.js       house tax set by the player: money vs. mood
+    taxes.js       household tax set by the player: money vs. mood
+    population.js  residents and households from housing (factory threshold)
+    hamlets.js     buying plots around the municipality: new hamlets, roads, newcomers
+    kpk.js         anti-corruption investigation trigger (the card is in content/dilemmas.js)
     construction.js  scaffolding and ribbon-cutting openings
     upgrades.js    building upgrades (content in content/upgrades.js)
     mayor.js       the mayor in person: handshakes, listening
@@ -48,7 +56,7 @@ src/
     preview.js     ghost model for construction preview
     overlay.js     envy map
     effects.js     snow, party lights and notes
-    labels.js      HTML district labels, thought bubbles, event marker
+    labels.js      HTML district labels, "for sale" tags, thought bubbles, event marker
     mapEvents.js   animated actors for live map events
     mayor.js       the mayor walking on the map (click to walk, follows targets)
   audio/          everything synthesised with Web Audio (no audio files)
@@ -56,7 +64,7 @@ src/
     sfx.js         sound effects and protest/riot ambience
     context.js     shared audio context
   ui/              HTML interface (top bar, sidebar with tax control, ticker, citizen popup, building panel, report)
-tests/             node --test suites (rules, levers, unrest/elections, content, save/seasons, map events, taxes, village, balance)
+tests/             node --test suites (rules, levers, unrest/elections, no-confidence, kpk, hamlets, content, save/seasons, map events, taxes, village, party, population, balance)
 ```
 
 In dev mode `window.__obcina` exposes `{ game, view }` for debugging.

@@ -12,7 +12,8 @@
 //
 // ctx = { district: 0..3 | null, citizenId: number | null }
 
-import { DISTRICTS, SIZE, idx, districtOf, inBounds, isWalkable } from './map.js';
+import { DISTRICTS, SIZE, idx, districtOf, isOwned } from './map.js';
+import { roadNetwork, hasRoadAccess } from './roads.js';
 import { clampCitizen } from './citizens.js';
 import { envyFactor } from './envy.js';
 import { BUILDINGS } from './texts.js';
@@ -25,6 +26,8 @@ export function applyEffect(state, eff, ctx = {}) {
 
   if (eff.budget) state.budget += eff.budget;
   if (eff.secret) state.secret = Math.max(0, state.secret + eff.secret);
+  // secretShare: −1 confiscates everything, −0.5 half, …
+  if (eff.secretShare) state.secret = Math.max(0, Math.round(state.secret * (1 + eff.secretShare)));
   if (eff.affair) state.affair = clamp(state.affair + eff.affair);
   if (eff.propaganda) state.propaganda = Math.max(0, state.propaganda + eff.propaganda);
 
@@ -74,15 +77,14 @@ function destroyRandom(state, type, count, district) {
 
 /** Builds `type` on a free meadow tile, preferring tiles next to a road. */
 function buildRandom(state, type, district) {
+  const network = roadNetwork(state);
   const spots = [];
   for (let y = 0; y < SIZE; y++) {
     for (let x = 0; x < SIZE; x++) {
-      if (state.grid[idx(x, y)].type !== 'grass') continue;
+      if (state.grid[idx(x, y)].type !== 'grass' || !isOwned(state, x, y)) continue;
       if (district != null && districtOf(x, y) !== district) continue;
-      const nearRoad = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(
-        ([dx, dy]) => inBounds(x + dx, y + dy) && isWalkable(state.grid[idx(x + dx, y + dy)].type),
-      );
-      spots.push({ x, y, nearRoad });
+      // Prefer spots that touch the road network, so the new building actually works.
+      spots.push({ x, y, nearRoad: hasRoadAccess(state, x, y, network) });
     }
   }
   const pool = spots.some((s) => s.nearRoad) ? spots.filter((s) => s.nearRoad) : spots;
@@ -100,6 +102,7 @@ export function describeEffect(eff, ctx = {}, state = null) {
   const who = ctx.citizenId != null && state ? state.citizens[ctx.citizenId].name.split(' ')[0] : 'občan';
   if (eff.budget) out.push(formatEuro(eff.budget, { sign: true }));
   if (eff.secret) out.push(`${formatEuro(eff.secret, { sign: true })} skrivni račun`);
+  if (eff.secretShare) out.push(eff.secretShare <= -1 ? 'ves skrivni račun zaplenjen' : `${Math.round(eff.secretShare * 100)} % skrivnega računa`);
   if (eff.affair) out.push(`${formatSigned(eff.affair)} tveganje afere`);
   if (eff.propaganda) out.push(`${formatSigned(eff.propaganda)} propaganda`);
   if (eff.happy) out.push(`${formatSigned(eff.happy)} sreča vsem`);

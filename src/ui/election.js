@@ -7,7 +7,8 @@ import { formatEuro } from '../game/util.js';
 
 const REVEAL_MS = 700;
 
-export function showElection(result, { onContinue, onRecount, onAccept, onVerdict }) {
+/** `place` is the municipality's title, e.g. »Občina Spodnja Luša«. */
+export function showElection(result, { onContinue, onRecount, onAccept, onVerdict, place = '' }) {
   const rows = result.districts
     .map(
       (d, i) => `<tr class="er-row" data-i="${i}" hidden>
@@ -17,7 +18,7 @@ export function showElection(result, { onContinue, onRecount, onAccept, onVerdic
     )
     .join('');
   const { el, close } = openModal(
-    `<header><div class="kicker">Volilna noč · ${result.term}. mandat</div><h3>Volitve župana</h3></header>
+    `<header><div class="kicker">${escapeHtml(place)} · ${result.early ? 'Nezaupnica občinskega sveta' : `Volilna noč · ${result.term}. mandat`}</div><h3>${result.early ? 'Predčasne volitve' : 'Volitve župana'}</h3></header>
      <div class="body">
        <p>Protikandidat: <strong>${escapeHtml(result.opponentName)}</strong></p>
        <table class="election-table">
@@ -25,7 +26,7 @@ export function showElection(result, { onContinue, onRecount, onAccept, onVerdic
          ${rows}
          <tr class="sum er-total" hidden><td>Skupaj</td><td class="er-mayor">${result.mayor}</td><td class="er-opp">${result.opponent}</td></tr>
        </table>
-       <p class="muted">Za zmago je potrebnih ${CONFIG.elections.votesToWin} glasov od 25.</p>
+       <p class="muted">Za zmago: več kot polovica glasov.</p>
        <div class="election-verdict" hidden></div>
      </div>
      <footer class="election-actions" hidden></footer>`,
@@ -70,9 +71,9 @@ export function showElection(result, { onContinue, onRecount, onAccept, onVerdic
   }, REVEAL_MS * (rowEls.length + 1));
 }
 
-export function showGameOver(e) {
+export function showGameOver(e, place = '') {
   const { el } = openModal(
-    `<header><div class="kicker">Konec mandata</div><h3>Bivši župan</h3></header>
+    `<header><div class="kicker">${escapeHtml(place)} · Konec mandata</div><h3>Bivši župan</h3></header>
      <div class="body">
        ${e.lines.map((l) => `<p class="epilogue">${escapeHtml(l)}</p>`).join('')}
        <div class="districts">

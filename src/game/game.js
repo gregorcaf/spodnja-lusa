@@ -19,6 +19,7 @@
 //   'mapevent'    { phase: 'start' | 'end', ... }   a live event on the map started or finished
 //   'ribbon'      { x, y, kind }  scaffolding gone / ribbon waiting / ribbon cut / opening missed
 //   'party-after' { drunk, incident }  drunk citizens and maybe an incident after the party
+//   'hamlet'      { plotId, citizens }  a plot was bought: new district, roads and citizens
 //   'config'      –               CONFIG was edited (dev panel)
 
 import { CONFIG } from '../config.js';
@@ -28,7 +29,7 @@ import { createCitizens, pickThought, tickThoughts } from './citizens.js';
 import { performAction, forecast, checkAction } from './building.js';
 import { useLever, checkLever } from './levers.js';
 import { advanceMonth } from './month.js';
-import { unrestLevel, assignProtesters, protesterCount } from './unrest.js';
+import { unrestLevel, unrestCause, assignProtesters, protesterCount } from './unrest.js';
 import { drawDilemma, presentDilemma, resolveDilemma, dueYearlyEvent } from './dilemmas.js';
 import { spawnWish, payWish, checkBuildWishes } from './wishes.js';
 import {
@@ -37,13 +38,16 @@ import {
   startNewTerm,
   canRecount,
   recount,
+  startEarlyElection,
   epilogue,
   opponentLabel,
   buyVote,
   bribeOpponent,
 } from './elections.js';
-import { UNREST } from './texts.js';
+import { UNREST, PARTY_BROKEN_UP } from './texts.js';
 import { giveEnvelope } from './envelopes.js';
+import { checkKpk } from './kpk.js';
+import { buyHamlet } from './hamlets.js';
 import { setTaxRate } from './taxes.js';
 import { afterParty, tickDrunk } from './partyIncidents.js';
 import { tickConstruction, cutRibbon, pendingRibbons } from './construction.js';
@@ -51,6 +55,8 @@ import { buyUpgrade } from './upgrades.js';
 import { shakeHands, listen } from './mayor.js';
 import { spawnMapEvent, advanceMapEvent, clickMapEvent, describeMapEvent, nextMapEventDelay } from './mapEvents.js';
 import { randFloat } from './util.js';
+import { rollKrpan, tickKrpan, meetKrpan, pourCvicek, ringBells } from './eastereggs.js';
+import { withMunicipality, cleanName } from './municipality.js';
 
 export const SPEEDS = [0, 1, 2, 3];
 
@@ -75,12 +81,14 @@ export function createState() {
 
     // Dilemma cards
     dilemma: null, // card instance waiting for an answer
-    dilemmaTimer: randFloat(0.4, 1), // game-months until the next card (first one comes early)
+    dilemmaTimer: randFloat(...CONFIG.dilemmas.firstAfter), // game-months until the next card
     usedDilemmas: [],
     yearlyDone: {}, // yearly event id -> year it was shown
 
     // Live map events
     mapEvent: null,
+    krpan: null, // easter egg: the rare visitor with his mare (eastereggs.js)
+    municipality: null, // the name the player gave the municipality (municipality.js)
     mapEventTimer: randFloat(0.3, 0.6), // the first one comes early
     modifiers: [], // lasting effects: { key, label, months, monthlyBudget?, blockLever? }
     scheduled: [], // delayed consequences
@@ -88,7 +96,7 @@ export function createState() {
     // Wishes
     wishes: [],
     usedWishes: [],
-    wishTimer: 0.3,
+    wishTimer: 1, // the first wish after about a month
 
     // Elections
     term: 1,
@@ -97,6 +105,11 @@ export function createState() {
     opponentId: null,
     extraEnvyDrift: 0,
     recountUsed: false,
+    riotMonths: 0, // riot months in a row (3 → vote of no confidence)
+    hamlets: [], // bought plots (district ids 4–11)
+    newcomerIndex: 0,
+    kpkDue: false, // an investigation card is waiting to be shown
+    kpkCooldownUntil: 0, // monthIndex before which no new investigation starts
     votesBought: 0, // this campaign
     envelopesThisYear: 0,
     bribeTried: false, // this campaign
@@ -205,8 +218,20 @@ export class Game extends Emitter {
     if (report.wishNews.length) this.emit('wishes', {});
     this.refreshUnrest();
 
+    // Once in a long while, a strong man with a little mare passes through.
+    const krpan = rollKrpan(s);
+    if (krpan) {
+      this.emit('news', krpan);
+      this.emit('krpan', { phase: 'start' });
+    }
+
     // A yearly event (Christmas fair, summer festival) comes early in its month.
     if (dueYearlyEvent(s)) s.dilemmaTimer = Math.min(s.dilemmaTimer, 0.3);
+    // Greedy mayors may get a visit from the anti-corruption commission.
+    if (checkKpk(s)) {
+      s.dilemmaTimer = Math.min(s.dilemmaTimer, 0.15);
+      this.emit('news', 'Neuradno: Komisija za preprečevanje korupcije se zanima za naše občinske razpise.');
+    }
 
     const cal = checkElectionCalendar(s);
     if (cal.campaignStarted) {
@@ -217,6 +242,15 @@ export class Game extends Emitter {
     this.emit('state');
     this.emit('month', report);
     if (cal.electionDue) this.holdElection();
+    else if (s.riotMonths >= CONFIG.unrest.noConfidenceMonths) {
+      // Riots for months on end: the council has had enough.
+      startEarlyElection(s);
+      this.emit(
+        'news',
+        `Po ${s.riotMonths} mesecih neredov je občinski svet izglasoval nezaupnico županu. Razpisane so predčasne volitve!`,
+      );
+      this.holdElection(true);
+    }
     return report;
   }
 
@@ -274,6 +308,57 @@ export class Game extends Emitter {
   listen(citizenId) {
     const res = listen(this.state, citizenId);
     if (res.wish) this.emit('wishes', {});
+    this.emit('state');
+    return res;
+  }
+
+  // --- Expanding the municipality ---------------------------------------------
+
+  /** Easter egg: the mayor stops the man with the mare. */
+  meetKrpan() {
+    const res = meetKrpan(this.state);
+    if (res.ok) {
+      this.emit('news', res.news);
+      this.emit('state');
+    }
+    return res;
+  }
+
+  /** Easter egg: »cviček« typed on the keyboard. */
+  pourCvicek() {
+    const res = pourCvicek(this.state);
+    if (res.ok) {
+      this.emit('news', res.news);
+      this.emit('state');
+    }
+    return res;
+  }
+
+  /** Easter egg: the church bells, rung by clicking the church seven times. */
+  ringBells() {
+    const res = ringBells(this.state);
+    this.emit('news', res.news);
+    return res;
+  }
+
+  /** News can say »v {obcini}«: the municipality's name is filled in here, for every listener. */
+  emit(event, payload) {
+    super.emit(event, event === 'news' ? withMunicipality(payload, this.state) : payload);
+  }
+
+  /** Names the municipality (new game). */
+  setMunicipality(name) {
+    this.state.municipality = cleanName(name) || null;
+    this.emit('state');
+  }
+
+  buyHamlet(plotId) {
+    const res = buyHamlet(this.state, plotId);
+    if (!res.ok) return res;
+    for (const t of res.tiles) this.emit('tile', t);
+    this.emit('hamlet', { plotId, citizens: res.citizens });
+    this.emit('news', res.news);
+    this.refreshUnrest();
     this.emit('state');
     return res;
   }
@@ -339,13 +424,15 @@ export class Game extends Emitter {
 
   // --- Elections -----------------------------------------------------------
 
-  holdElection() {
+  holdElection(early = false) {
     const s = this.state;
     s.election = runElection(s);
+    s.election.early = early;
     s.election.canRecount = !s.election.won && canRecount(s);
     if (s.election.won) {
       startNewTerm(s);
-      this.emit('news', `Župan je zmagal na volitvah s ${s.election.mayor} glasovi od ${s.citizens.length}. Začenja se ${s.term}. mandat.`);
+      const pct = Math.round((100 * s.election.mayor) / Math.max(1, s.election.mayor + s.election.opponent));
+      this.emit('news', `Župan je zmagal na volitvah s ${pct} % glasov (${s.election.mayor} od ${s.election.mayor + s.election.opponent}). Začenja se ${s.term}. mandat.`);
     }
     this.emit('election', s.election);
     this.emit('state');
@@ -418,9 +505,16 @@ export class Game extends Emitter {
     const prev = s.unrest;
     s.unrest = level;
     assignProtesters(s);
-    const key = prev === 'riot' && level === 'protest' ? 'cooling' : level;
-    this.emit('unrest', { level, prev, count: protesterCount(s), toast: UNREST[key].toast });
+    // Unrest out of plain unhappiness gets its own words.
+    const mood = level !== 'calm' && unrestCause(s) === 'mood' && prev !== 'riot';
+    const key = prev === 'riot' && level === 'protest' ? 'cooling' : mood ? `${level}Mood` : level;
+    this.emit('unrest', { level, prev, count: protesterCount(s), toast: UNREST[key].toast, cause: unrestCause(s) });
     this.emit('news', UNREST[key].news);
+    // A party can't go on with the village out on the street: everyone leaves at once.
+    if (level !== 'calm' && s.party) {
+      this.emit('news', PARTY_BROKEN_UP);
+      this.endParty();
+    }
   }
 
   setSpeed(speed) {
@@ -456,7 +550,8 @@ export class Game extends Emitter {
         this.emit('tile', { x: ch.x, y: ch.y });
         if (ch.news) this.emit('news', ch.news);
         this.emit('ribbon', ch);
-        if (ch.kind === 'missed') this.emit('state');
+        // Scaffolding gone means new residents (population, taxes) – refresh everything.
+        this.emit('state');
       }
 
       // Live events on the map: one at a time.
@@ -469,6 +564,13 @@ export class Game extends Emitter {
           s.mapEventTimer = nextMapEventDelay();
           if (spawnMapEvent(s)) this.emit('mapevent', { phase: 'start', info: describeMapEvent(s), type: s.mapEvent.type });
         }
+      }
+
+      // The rare visitor walks on (and leaves at the far edge).
+      if (s.krpan) {
+        const bye = tickKrpan(s, months);
+        if (!s.krpan) this.emit('krpan', { phase: 'end' });
+        if (bye) this.emit('news', bye);
       }
 
       // Now and then somebody wants something.

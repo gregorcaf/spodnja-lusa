@@ -62,3 +62,29 @@ test('incidents happen about half the time and each kind works', () => {
   assert.ok(incidents > 15 && incidents < 45, `${incidents}/60 incidents`);
   assert.deepEqual([...kinds].sort(), ['brawl', 'hangover', 'photo', 'tanker']);
 });
+
+test('no party while the village protests', () => {
+  const game = partyGame(1);
+  const s = game.state;
+  s.affair = CONFIG.unrest.protestAt + 5;
+  game.refreshUnrest();
+  assert.equal(s.unrest, 'protest');
+  const res = game.useLever('party');
+  assert.equal(res.ok, false);
+  assert.equal(s.party, null);
+});
+
+test('when unrest breaks out during a party, the party ends at once', () => {
+  const game = partyGame(1);
+  const s = game.state;
+  assert.ok(game.useLever('party').ok);
+  assert.ok(s.party);
+  const ended = [];
+  game.on('party-end', () => ended.push(true));
+  s.affair = CONFIG.unrest.riotAt + 5;
+  game.refreshUnrest();
+  assert.equal(s.unrest, 'riot');
+  assert.equal(s.party, null);
+  assert.equal(ended.length, 1);
+  assert.ok(s.citizens.some((c) => c.protesting), 'people are out protesting instead');
+});

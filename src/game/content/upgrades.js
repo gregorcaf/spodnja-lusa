@@ -28,6 +28,30 @@ export const UPGRADES = {
     { id: 'filter', name: 'Filter na dimniku', desc: 'Ni več smradu. Sosedje ne vedo, kaj bi zdaj počeli.', cost: 12000, effect: { districtHappy: 8 }, monthly: -500, decor: 'filter' },
     { id: 'line', name: 'Nova proizvodna linija', desc: 'Več izdelkov, več denarja, več dima.', cost: 20000, effect: { districtHappy: -4, othersEnvy: 3 }, monthly: 2000, decor: 'annex' },
   ],
+  flats: [
+    { id: 'elevator', name: 'Dvigalo', desc: 'Končno. Upokojenci iz petega nadstropja so prvič po letu 2011 videli trgovino.', cost: 8000, effect: { districtHappy: 3 }, monthly: -150, decor: 'elevator' },
+    { id: 'playground', name: 'Otroško igrišče', desc: 'Gugalnica, tobogan in klop za mame, ki opazujejo druge mame.', cost: 5000, effect: { districtHappy: 4 }, decor: 'playground' },
+  ],
+  clinic: [
+    { id: 'ambulance', name: 'Reševalno vozilo', desc: 'Prihod v 8 minutah. Po glavni cesti, če ni traktorja.', cost: 18000, effect: { happy: 3 }, monthly: -300, decor: 'ambulance' },
+    { id: 'pharmacy', name: 'Lekarna', desc: 'Zdravila brez vožnje v mesto. Nasveti zastonj, tudi nezaželeni.', cost: 9000, effect: { districtHappy: 3 }, monthly: 400, decor: 'pharmacy' },
+  ],
+  police: [
+    { id: 'radar', name: 'Radar pri šoli', desc: 'Kazni lijejo v proračun. Vozniki ga obvozijo po stari cesti.', cost: 6000, effect: { districtHappy: -2 }, monthly: 500, decor: 'radar' },
+    { id: 'patrol', name: 'Nočna patrulja', desc: 'Ponoči je mirno. Razen ob petkih pred gostilno.', cost: 10000, effect: { happy: 2, envy: -1 }, monthly: -300, decor: 'patrol' },
+  ],
+  shop: [
+    { id: 'bakery', name: 'Domača pekarna', desc: 'Kruh ob šestih zjutraj. Vrsta ob petih.', cost: 5000, effect: { districtHappy: 3 }, monthly: 250, decor: 'bakery' },
+    { id: 'parking', name: 'Parkirišče', desc: 'Pet mest. Štiri zaseda isti sosed.', cost: 4000, effect: { districtHappy: 1, othersEnvy: 1 }, monthly: 150, decor: 'parking' },
+  ],
+  vineyard: [
+    { id: 'cellar', name: 'Zidanica', desc: 'Za degustacije. In sestanke, o katerih ni zapisnika.', cost: 7000, effect: { districtHappy: 2, affair: 2 }, monthly: 300, decor: 'cellar' },
+    { id: 'klopotec', name: 'Klopotec', desc: 'Odganja ptice. In sosede, ki bi radi spali.', cost: 1500, effect: { districtHappy: 2, happy: 1 }, decor: 'klopotec' },
+  ],
+  cemetery: [
+    { id: 'chapel', name: 'Mrliška vežica', desc: 'Dostojno slovo. In parkirišče, ki ga je zmanjkalo že na otvoritvi.', cost: 9000, effect: { districtHappy: 3 }, monthly: -100, decor: 'chapel' },
+    { id: 'candles', name: 'Sveče za vse svete', desc: 'Pokopališče ponoči sveti kot letališče. Tradicija je tradicija.', cost: 2000, effect: { happy: 2 }, decor: 'candles' },
+  ],
   church: [
     { id: 'tower', name: 'Obnova zvonika', desc: 'Zvonik zasije. Župnik v pridigi omeni župana.', cost: 6000, effect: { happy: 3, propaganda: 2 }, decor: 'goldTower' },
     { id: 'lights', name: 'Osvetlitev cerkve', desc: 'Ponoči jo vidijo celo v Zgornjih Žlampah. Prav.', cost: 4000, effect: { happy: 2, envy: -2 }, monthly: -100, decor: 'spotlight' },

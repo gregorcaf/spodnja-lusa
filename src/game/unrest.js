@@ -4,19 +4,43 @@ import { CONFIG } from '../config.js';
 import { DISTRICTS, SIZE, idx, districtOf } from './map.js';
 import { BURN_NEWS, VANDAL_NEWS } from './texts.js';
 import { clampCitizen } from './citizens.js';
-import { moodScore } from './stats.js';
+import { moodScore, supportShare } from './stats.js';
 import { taxRate, taxLevel } from './taxes.js';
 import { pick, capitalize, fillTemplate } from './util.js';
+import { policeDistricts, vandalismShare, policeSavedNews } from './services.js';
 
 const MIN_PROTESTERS = 5;
 // What can burn in a riot. Roads and the church are spared.
-const BURNABLE = ['house', 'firehouse', 'hall', 'roundabout', 'inn', 'factory'];
+export const BURNABLE = ['house', 'firehouse', 'hall', 'roundabout', 'inn', 'factory', 'flats', 'clinic', 'police', 'shop'];
 
 /** 'calm' | 'protest' | 'riot' */
-export function unrestLevel(state) {
+const RANK = { calm: 0, protest: 1, riot: 2 };
+
+/** Unrest caused by the affair risk alone. */
+function affairLevel(state) {
   if (state.affair >= CONFIG.unrest.riotAt) return 'riot';
   if (state.affair >= CONFIG.unrest.protestAt) return 'protest';
   return 'calm';
+}
+
+/** Unrest caused by unhappiness alone (very low support for the mayor). */
+function moodLevel(state) {
+  const support = supportShare(state);
+  if (support <= CONFIG.unrest.supportRiotAtMost) return 'riot';
+  if (support <= CONFIG.unrest.supportProtestAtMost) return 'protest';
+  return 'calm';
+}
+
+/** 'calm' | 'protest' | 'riot' – whichever cause (affair or unhappiness) is worse. */
+export function unrestLevel(state) {
+  const a = affairLevel(state);
+  const m = moodLevel(state);
+  return RANK[m] > RANK[a] ? m : a;
+}
+
+/** 'affair' | 'mood' – what is driving the current unrest. */
+export function unrestCause(state) {
+  return RANK[moodLevel(state)] > RANK[affairLevel(state)] ? 'mood' : 'affair';
 }
 
 /** Decides who is out on the street. Re-evaluated on level changes and monthly. */
@@ -66,8 +90,13 @@ export function applyMonthlyUnrest(state) {
         if (BURNABLE.includes(state.grid[idx(x, y)].type)) targets.push({ x, y });
       }
     }
-    if (targets.length) {
-      const { x, y } = pick(targets);
+    // Rioters pick a target anywhere; where a police station stands, the fire is stopped in time.
+    const guarded = policeDistricts(state);
+    const target = targets.length ? pick(targets) : null;
+    if (target && guarded.has(districtOf(target.x, target.y))) {
+      damage = { x: null, y: null, type: null, cost: 0, news: policeSavedNews(districtOf(target.x, target.y)) };
+    } else if (target) {
+      const { x, y } = target;
       const tile = state.grid[idx(x, y)];
       const type = tile.type;
       // A burned roundabout leaves its road behind.
@@ -92,8 +121,10 @@ export function applyMonthlyUnrest(state) {
  */
 function protestDamage(state) {
   const u = CONFIG.unrest;
-  state.budget -= u.protestVandalism;
-  const damage = { x: null, y: null, type: null, cost: u.protestVandalism, news: pick(VANDAL_NEWS.graffiti) };
+  // With a police station around, the graffiti gets cleaned up for less.
+  const vandalism = Math.round(u.protestVandalism * vandalismShare(state));
+  state.budget -= vandalism;
+  const damage = { x: null, y: null, type: null, cost: vandalism, news: pick(VANDAL_NEWS.graffiti) };
   if (Math.random() >= u.protestDamageChance) return damage;
 
   const find = (type) => {

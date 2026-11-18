@@ -6,6 +6,7 @@ import { CITIZEN_NAMES, CHARACTERS, THOUGHTS, BUILDINGS, NEIGHBOR, MOOD_LABELS }
 import { clamp, randFloat, randInt, pick, shuffle, capitalize, fillTemplate } from './util.js';
 import { moodOf } from './stats.js';
 import { taxRate, taxLevel } from './taxes.js';
+import { cemeteryMissing } from './services.js';
 
 const CHARACTER_KEYS = Object.keys(CHARACTERS);
 
@@ -31,6 +32,27 @@ export function createCitizens() {
     };
   });
   return citizens;
+}
+
+/** A new named citizen moving into a hamlet. */
+export function createNewcomer(state, name, female, home) {
+  const others = [0, 1, 2, 3];
+  const c = {
+    id: state.citizens.length,
+    name,
+    female,
+    home,
+    character: pick(CHARACTER_KEYS),
+    // Newcomers arrive in a good mood – it's a fresh start.
+    happy: randFloat(55, 70),
+    envy: randFloat(5, 15),
+    envyTarget: { district: pick(others), what: null },
+    protesting: false,
+    thought: '',
+    thoughtTimer: randFloat(0, CONFIG.citizens.thoughtMax),
+  };
+  c.thought = pickThought(c, state);
+  return c;
 }
 
 export function clampCitizen(c) {
@@ -96,6 +118,10 @@ export function pickThought(c, state) {
   if (tax === 'low') add(THOUGHTS.lowTax, 1.5);
   if (districtHas(state, c.home, 'factory')) add(THOUGHTS.nearFactory, 2.5);
   if (districtHas(state, c.home, 'inn')) add(THOUGHTS.nearInn, 2);
+  if (districtHas(state, c.home, 'clinic')) add(THOUGHTS.nearClinic, 1.5);
+  if (districtHas(state, c.home, 'police')) add(THOUGHTS.nearPolice, 1.5);
+  if (districtHas(state, c.home, 'shop')) add(THOUGHTS.nearShop, 2);
+  if (cemeteryMissing(state)) add(THOUGHTS.noCemetery, 1.5);
   if (c.happy < 30) add(THOUGHTS.lowHappy, 3);
   if (c.happy > 70) add(THOUGHTS.highHappy, 3);
   add(THOUGHTS.character[c.character], 2);

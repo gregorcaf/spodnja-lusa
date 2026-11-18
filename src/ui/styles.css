@@ -10,7 +10,7 @@
   --gold: #c9962c;
   --dark: #222d27;
   --dark-2: #2f3c35;
-  --sidebar-w: 320px;
+  --sidebar-w: 76px;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color: var(--ink);
 }
@@ -107,8 +107,11 @@ button {
 .neg {
   color: #ff8a7a;
 }
-.secret .value {
-  color: #f3cf6b;
+.warn {
+  color: #f2d06b;
+}
+.secret .value.warn {
+  color: #f2d06b; /* from the KPK threshold on (plain white below it) */
 }
 
 /* ---------- Map ---------- */
@@ -252,12 +255,6 @@ button {
   background: #fff;
 }
 
-#rot-left,
-#rot-right {
-  font-size: 17px !important;
-  padding: 3px 10px !important;
-}
-
 #map-controls button.active {
   background: var(--dark);
   color: #fff;
@@ -366,6 +363,143 @@ button {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  position: relative;
+  z-index: 15; /* the flyout opens over the map */
+}
+
+/* ---------- Icon bar ---------- */
+
+.rail {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 8px 6px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.rail-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 6px 2px 5px;
+  background: #fffdf8;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  color: var(--ink);
+}
+
+.rail-btn .r-icon {
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+.rail-btn small {
+  font-size: 10.5px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.rail-btn:hover {
+  border-color: var(--accent-2);
+}
+
+.rail-btn.open {
+  border-color: var(--gold);
+  background: #fff4d6;
+}
+
+.rail-btn.selected {
+  border-color: var(--accent);
+  background: #e3efe0;
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.rail-sep {
+  height: 1px;
+  background: var(--line);
+  margin: 3px 4px;
+}
+
+.rail-gap {
+  flex: 1;
+}
+
+.rail-btn.next {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 0 #1d4726;
+}
+
+.rail-btn.next:hover {
+  background: var(--accent-2);
+}
+
+/* ---------- Flyout menu next to the bar ---------- */
+
+.flyout {
+  position: absolute;
+  top: 8px;
+  right: calc(100% + 8px);
+  width: 312px;
+  max-height: calc(100% - 16px);
+  overflow-y: auto;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 12px 34px #0005;
+  padding: 8px 10px 10px;
+  animation: toast-in 0.15s ease-out;
+}
+
+.flyout[hidden],
+.flyout [hidden] {
+  display: none !important;
+}
+
+.flyout-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.flyout-head h2 {
+  margin: 0;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+}
+
+.flyout-close {
+  border: none;
+  background: none;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--ink-soft);
+  padding: 0 4px;
+}
+
+.flyout-close:hover {
+  color: var(--ink);
+}
+
+#tool-grid {
+  display: grid;
+}
+
+.flyout .tax-row {
+  margin: 4px 2px 2px;
+}
+
+.flyout .tax-main {
+  justify-content: center;
+  gap: 10px;
 }
 
 .side-scroll {
@@ -389,7 +523,7 @@ button {
 .tool-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 6px;
+  gap: 5px;
 }
 
 .tool {
@@ -401,13 +535,45 @@ button {
   background: #fffdf8;
   border: 1.5px solid var(--line);
   border-radius: 10px;
-  padding: 5px 9px;
+  padding: 3px 9px;
   color: var(--ink);
   transition: border-color 0.1s, background 0.1s;
 }
 
 .tool.wide {
   grid-column: span 2;
+}
+
+.tool[hidden] {
+  display: none;
+}
+
+.tool-tabs {
+  display: flex;
+  gap: 3px;
+  margin: 7px 0 5px;
+  border-bottom: 1.5px solid var(--line);
+}
+
+.tool-tab {
+  flex: 1;
+  background: none;
+  border: none;
+  border-bottom: 2.5px solid transparent;
+  margin-bottom: -1.5px;
+  padding: 4px 2px 5px;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--ink-soft);
+}
+
+.tool-tab:hover {
+  color: var(--ink);
+}
+
+.tool-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
 }
 
 .tool:hover {
@@ -443,7 +609,7 @@ button {
 .lever-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 6px;
+  gap: 5px;
 }
 
 .lever {
@@ -1773,4 +1939,427 @@ button {
 
 .ribbon-marker .em-icon {
   border-color: #f2c230;
+}
+
+/* ---------- Hamlets ---------- */
+
+.sale-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+}
+
+.sale-label > * {
+  display: block;
+  transform: translateX(-50%);
+  width: max-content;
+  margin: 0 auto;
+}
+
+.sale-label span:first-child {
+  background: #fbf6e6e6;
+  color: #8e1f15;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid #c0392b66;
+  box-shadow: 0 1px 4px #0003;
+}
+
+.sale-label .price {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: #00000080;
+  border-radius: 6px;
+  padding: 1px 6px;
+  margin-top: 3px;
+}
+
+.district-label.hamlet .name {
+  background: #fff3d6e6;
+}
+
+.hamlet-list {
+  margin: 8px 0 4px;
+  padding-left: 0;
+  list-style: none;
+  line-height: 1.7;
+}
+
+.report footer button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---------- Road access ---------- */
+
+.noroad-marker {
+  position: absolute;
+  left: 0;
+  top: 0;
+  margin: -12px 0 0 -11px;
+  font-size: 18px;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 2px #0007);
+  animation: blink 1.4s steps(2) infinite;
+}
+
+/* ---------- Tutorial (guided tour) ---------- */
+
+.tut-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 60; /* above modals, toasts and markers */
+  pointer-events: none; /* only the blockers and the bubble catch the mouse */
+}
+
+.tut-layer.tut-centered {
+  background: #000a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+
+/* Transparent click blockers around the spotlight hole. */
+.tut-block {
+  position: fixed;
+  pointer-events: auto;
+}
+
+.tut-block[hidden],
+.tut-focus[hidden],
+.tut-task[hidden] {
+  display: none;
+}
+
+/* Pulsing ring around the button to press. */
+.tut-focus {
+  position: fixed;
+  border-radius: 10px;
+  border: 3px solid var(--gold);
+  pointer-events: none;
+  animation: tut-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes tut-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 #c9962caa;
+  }
+  50% {
+    box-shadow: 0 0 0 9px #c9962c00;
+  }
+}
+
+/* While the tour runs, the game's own popups, tooltips and toasts stay above the dimming. */
+.tutorial-on #tooltip,
+.tutorial-on #citizen-popup,
+.tutorial-on #building-panel,
+.tutorial-on #toasts {
+  z-index: 70;
+}
+
+.tut-spot {
+  position: fixed;
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 3px var(--gold),
+    0 0 0 200vmax #0009;
+  pointer-events: none;
+  transition:
+    left 0.25s ease,
+    top 0.25s ease,
+    width 0.25s ease,
+    height 0.25s ease;
+}
+
+.tut-spot[hidden] {
+  display: none;
+}
+
+.tut-bubble {
+  pointer-events: auto;
+  position: fixed;
+  width: min(360px, calc(100vw - 32px));
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 14px;
+  box-shadow: 0 16px 50px #0009;
+  padding: 14px 16px 12px;
+  animation: toast-in 0.2s ease-out;
+  transition:
+    left 0.25s ease,
+    top 0.25s ease;
+}
+
+.tut-centered .tut-bubble {
+  position: relative;
+  width: min(440px, calc(100vw - 32px));
+}
+
+.tut-kicker {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-soft);
+}
+
+.tut-title {
+  margin: 2px 0 6px;
+  font-size: 18px;
+}
+
+.tut-text {
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.tut-text p {
+  margin: 0 0 8px;
+}
+
+.tut-muted {
+  color: var(--ink-soft);
+  font-size: 12.5px;
+}
+
+.tut-dots {
+  display: flex;
+  gap: 5px;
+  justify-content: center;
+  margin: 4px 0 10px;
+}
+
+.tut-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--line);
+}
+
+.tut-dots span.on {
+  background: var(--accent);
+}
+
+.tut-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tut-gap {
+  flex: 1;
+}
+
+.tut-actions button {
+  border: none;
+  border-radius: 9px;
+  padding: 7px 12px;
+  font-weight: 600;
+  font-size: 13.5px;
+}
+
+.tut-next {
+  background: var(--accent);
+  color: #fff;
+}
+
+.tut-back {
+  background: var(--paper-2);
+  color: var(--ink);
+}
+
+.tut-back[hidden] {
+  display: none;
+}
+
+.tut-skip {
+  background: none;
+  color: var(--ink-soft);
+  text-decoration: underline;
+  padding-left: 0 !important;
+}
+
+.tut-task {
+  margin: 4px 0 8px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: #fff4d6;
+  border: 1px dashed var(--gold);
+  font-weight: 600;
+  font-size: 13.5px;
+}
+
+.tut-task.done {
+  background: #e3f1e2;
+  border: 1px solid var(--accent-2);
+  color: var(--accent);
+}
+
+.tut-next.pending {
+  background: var(--paper-2);
+  color: var(--ink-soft);
+}
+
+/* ---------- Compact sidebar tiles (icon, short name, price; the rest is in the hover help) ---------- */
+
+#tool-grid,
+.lever-grid {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+}
+
+#tool-grid .tool,
+.lever {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  text-align: center;
+  padding: 6px 4px 5px;
+  min-height: 64px;
+}
+
+.tool .t-icon,
+.lever .l-icon {
+  font-size: 20px;
+  line-height: 1.1;
+}
+
+#tool-grid .tool .t-name,
+.lever .l-name {
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.15;
+}
+
+#tool-grid .tool .t-cost,
+.lever .l-cost {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.lever .l-cost.secret {
+  color: #6b3fa0;
+}
+
+/* »Na teren« and »Podiranje«: one slim row. */
+.tool-row {
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between;
+  padding: 7px 10px !important;
+}
+
+.tool-row .t-cost {
+  color: var(--ink-soft);
+}
+
+#tool-grid .tool[hidden] {
+  display: none;
+}
+
+.tool-row .t-name,
+.tool-row .t-cost {
+  white-space: nowrap;
+}
+
+.tool-row {
+  gap: 8px;
+}
+
+/* Top bar: an emoji and the value side by side (names live in the hover help). */
+.stat:has(.s-icon) {
+  flex-direction: row;
+  align-items: center;
+  gap: 7px;
+}
+
+.stat .s-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.time-stat .value {
+  font-size: 15px;
+}
+
+/* Buildings you can't build right now: greyed out (the hover help still explains them). */
+#tool-grid .tool.unaffordable,
+#tool-grid .tool.locked {
+  background: #efeae0;
+  border-style: dashed;
+}
+
+#tool-grid .tool.unaffordable .t-icon,
+#tool-grid .tool.locked .t-icon {
+  filter: grayscale(1);
+  opacity: 0.5;
+}
+
+#tool-grid .tool.unaffordable .t-name,
+#tool-grid .tool.locked .t-name {
+  color: var(--ink-soft);
+}
+
+#tool-grid .tool.unaffordable .t-cost {
+  color: var(--red);
+}
+
+#tool-grid .tool.locked .t-cost {
+  color: var(--ink-soft);
+}
+
+/* The municipality's name in the top bar: long names end with "…" (full name on hover). */
+.brand {
+  display: block;
+  align-self: center;
+  max-width: 260px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ---------- Naming the municipality (new game) ---------- */
+
+.name-row {
+  display: flex;
+  gap: 6px;
+  margin: 10px 0 4px;
+}
+
+.name-row input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 17px;
+  font-weight: 650;
+  padding: 9px 11px;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+}
+
+.name-row input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.name-row .dice {
+  border: 1.5px solid var(--line);
+  background: #fffdf8;
+  border-radius: 10px;
+  font-size: 20px;
+  padding: 0 10px;
+}
+
+.name-row .dice:hover {
+  border-color: var(--gold);
 }

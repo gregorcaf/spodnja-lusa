@@ -2,7 +2,8 @@
 
 import { resetConfig } from '../src/config.js';
 import { Game } from '../src/game/game.js';
-import { idx } from '../src/game/map.js';
+import { idx, SIZE, isOwned } from '../src/game/map.js';
+import { roadNetwork, hasRoadAccess } from '../src/game/roads.js';
 
 const realRandom = Math.random;
 
@@ -35,9 +36,19 @@ export function newGame({ seed = 1, quiet = true } = {}) {
 
 export const tileType = (state, x, y) => state.grid[idx(x, y)].type;
 
-export function findTile(state, type, predicate = () => true) {
-  for (let y = 0; y < 16; y++) {
-    for (let x = 0; x < 16; x++) if (tileType(state, x, y) === type && predicate(x, y)) return { x, y };
+/**
+ * First tile of `type` on land the municipality owns (unbought plots don't count).
+ * Meadow is only returned next to a connected road – where a sensible mayor would build.
+ * Pass { anywhere: true } for any meadow.
+ */
+export function findTile(state, type, predicate = () => true, { anywhere = false } = {}) {
+  const network = roadNetwork(state);
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      if (tileType(state, x, y) !== type || !isOwned(state, x, y) || !predicate(x, y)) continue;
+      if (type === 'grass' && !anywhere && !hasRoadAccess(state, x, y, network)) continue;
+      return { x, y };
+    }
   }
   return null;
 }

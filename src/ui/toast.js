@@ -4,6 +4,8 @@ const MAX_TOASTS = 3;
 
 export function toast(message, kind = 'info', duration = 3600) {
   const root = document.getElementById('toasts');
+  // The same message twice at once is just noise (e.g. several openings in a row).
+  if ([...root.children].some((t) => t.textContent === message && !t.classList.contains('out'))) return;
   const el = document.createElement('div');
   el.className = `toast ${kind}`;
   el.textContent = message;

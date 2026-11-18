@@ -10,6 +10,8 @@
 //   options: [{ label, effect, later: [{ in, chance, effect, news, elseEffect, elseNews }], news }]
 //     effect is shown on the button; `later` stays hidden (only hinted at).
 
+import { canBuildFactory } from '../population.js';
+
 export const DILEMMAS = [
   {
     id: 'cheap-asphalt',
@@ -732,6 +734,8 @@ export const DILEMMAS = [
   },
   {
     id: 'investor',
+    // The investor only comes once there are enough workers.
+    when: (s) => canBuildFactory(s),
     title: 'Investitor',
     text: 'Tuji investitor bi {loc} zgradil tovarno. Pravi, da prinaša delovna mesta in »majhen vonj«.',
     district: 'random',
@@ -880,7 +884,7 @@ export const DILEMMAS = [
             in: 2,
             chance: 0.5,
             effect: { propaganda: 8, budget: 5000 },
-            news: 'Zmaga! Naša občina je najlepše urejen kraj. Nagrado so porabili za nove rože.',
+            news: 'Zmaga! {Obcina} je najlepše urejen kraj. Nagrado so porabili za nove rože.',
             elseEffect: { envy: 5 },
             elseNews: 'Zmagale so Zgornje Žlampe. Spet. Komisija je bila menda na kosilu pri njihovem županu.',
           },
@@ -973,6 +977,51 @@ export const DILEMMAS = [
         news: 'Kostanjev piknik {loc} je uspel. Ogenj so zakurili trikrat, gasilce poklicali enkrat.',
       },
       { label: 'Kostanj raste zastonj', effect: { districtHappy: -4 }, news: 'Upokojenci {loc} nabirajo kostanj sami. In pišejo pritožbe.' },
+    ],
+  },
+
+  // --- Special: anti-corruption investigation (drawn only when due, see game.js) ---------------
+  {
+    id: 'kpk',
+    special: 'kpk',
+    title: 'Preiskava KPK',
+    text: 'Komisija za preprečevanje korupcije je začela preiskavo občinskih razpisov. Preiskovalci so že na hodniku in sprašujejo, kje je stranišče in kje so računi.',
+    options: [
+      {
+        label: 'Prenesi denar k teti',
+        effect: {},
+        news: 'Županova teta je nenadoma postala zelo premožna upokojenka.',
+        later: [
+          {
+            in: 1,
+            chance: 0.55,
+            effect: { affair: -10 },
+            news: 'Preiskovalci KPK niso našli ničesar. Županova teta si je kupila nov traktor.',
+            elseEffect: { secretShare: -1, affair: 25 },
+            elseNews: 'Preiskovalci so obiskali še teto. Skrivni račun je zaplenjen, teta pa je ob kavi vse povedala.',
+          },
+        ],
+      },
+      {
+        label: 'Uniči dokumente',
+        effect: { budget: -5000 },
+        news: 'Na občini so kupili industrijski uničevalnik dokumentov. In še enega rezervnega.',
+        later: [
+          {
+            in: 1,
+            chance: 0.6,
+            effect: { affair: -8 },
+            news: 'Preiskava KPK je ustavljena zaradi pomanjkanja dokazov. Uničevalnik se je pregrel.',
+            elseEffect: { affair: 30, propaganda: -5 },
+            elseNews: 'Preiskovalci so v smeteh našli razrezane dokumente – razrezane na dovolj velike koščke. Ovira preiskave!',
+          },
+        ],
+      },
+      {
+        label: 'Sodeluj s preiskovalci',
+        effect: { secretShare: -1, affair: -30, propaganda: 3 },
+        news: 'Župan je sodeloval s KPK in vrnil »pomotoma nakazana« sredstva. Mediji pišejo o »novem obrazu poštenosti«.',
+      },
     ],
   },
 ];

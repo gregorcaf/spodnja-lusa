@@ -2,8 +2,15 @@
 // Template tokens: {loc} {Loc} {what} {whatGen} {from} {homeName}
 // and {male form|female form} for grammatical gender.
 
-export const MUNICIPALITY = 'Naša občina';
 export const NEIGHBOR = { name: 'Zgornje Žlampe', loc: 'v Zgornjih Žlampah' };
+
+// Names for the newcomers in hamlets (even = male, odd = female). All fictional.
+export const NEWCOMER_NAMES = [
+  'Albin Gorjup', 'Irena Sever', 'Bojan Rupnik', 'Tatjana Hribernik', 'Stane Jereb', 'Majda Bizjak',
+  'Ivo Petrič', 'Saša Žnidaršič', 'Milan Kosmač', 'Polona Pečnik', 'Jure Logar', 'Breda Kovač',
+  'Vlado Turnšek', 'Mojca Rozina', 'Ciril Ambrož', 'Darja Kunstelj', 'Peter Mrak', 'Andreja Lipovšek',
+  'Rok Zalar', 'Simona Čebulj', 'Aleš Rebolj', 'Katja Gregorič', 'Damjan Pušnik', 'Urška Mohorič',
+];
 
 export const MONTHS = [
   'januar', 'februar', 'marec', 'april', 'maj', 'junij',
@@ -18,6 +25,12 @@ export const BUILDINGS = {
   hall: { name: 'Večnamenska dvorana', what: 'večnamensko dvorano', short: 'večnamenska dvorana' },
   inn: { name: 'Gostilna', what: 'gostilno', short: 'gostilna' },
   factory: { name: 'Tovarna', what: 'tovarno', short: 'tovarna' },
+  flats: { name: 'Blok', what: 'blok', short: 'blok' },
+  clinic: { name: 'Zdravstveni dom', what: 'zdravstveni dom', short: 'zdravstveni dom' },
+  police: { name: 'Policijska postaja', what: 'policijsko postajo', short: 'policija' },
+  shop: { name: 'Trgovina', what: 'trgovino', short: 'trgovina' },
+  vineyard: { name: 'Vinograd', what: 'vinograd', short: 'vinograd' },
+  cemetery: { name: 'Pokopališče', what: 'pokopališče', short: 'pokopališče' },
   church: { name: 'Cerkev', what: 'cerkev', short: 'cerkev' },
 };
 
@@ -27,9 +40,15 @@ export const TOOL_INFO = {
   house: { name: 'Hiša', icon: '🏠', note: 'davek' },
   roundabout: { name: 'Krožišče', icon: '⭕', note: 'na cesto' },
   firehouse: { name: 'Gasilski dom', icon: '🚒', note: '' },
-  hall: { name: 'Večnamenska dvorana', icon: '🏟️', note: '' },
+  hall: { name: 'Večnamenska dvorana', label: 'Dvorana', icon: '🏟️', note: '' },
   inn: { name: 'Gostilna', icon: '🍺', note: '' },
   factory: { name: 'Tovarna', icon: '🏭', note: 'smrdi' },
+  flats: { name: 'Blok', icon: '🏢', note: '5 gospodinjstev' },
+  clinic: { name: 'Zdravstveni dom', label: 'Zdr. dom', icon: '🏥', note: 'malo fovšije' },
+  police: { name: 'Policijska postaja', label: 'Policija', icon: '👮', note: 'manj škode' },
+  shop: { name: 'Trgovina', icon: '🛒', note: '' },
+  vineyard: { name: 'Vinograd', icon: '🍇', note: 'trgatev jeseni' },
+  cemetery: { name: 'Pokopališče', icon: '⚰️', note: 'nihče ga ne želi' },
   demolish: { name: 'Podiranje', icon: '🚜', note: 'cerkve ne' },
 };
 
@@ -109,6 +128,25 @@ export const THOUGHTS = {
     'Spet smrdi iz tovarne. Ampak vsaj proračun diši.',
     'Perila ne morem več sušiti zunaj. Hvala, tovarna.',
     'V tovarni iščejo delavce. Jaz bi {šel|šla}, če ne bi bilo dela.',
+  ],
+  nearClinic: [
+    'Končno imamo zdravstveni dom. Na pregled grem leta 2031.',
+    'V čakalnici sem izvedel več kot v trgovini.',
+    'Zdravnica mi je rekla, naj manj berem Facebook. Kaj pa ona ve.',
+  ],
+  nearPolice: [
+    'Policija me je ustavila, ker sem peljal prepočasi. Za traktorjem!',
+    'Odkar imamo policijo, sosed ne parkira več na mojem dvorišču. Zdaj parkira policija.',
+    'Radar pri šoli je nov. Zato vsi vozimo po stari cesti.',
+  ],
+  nearShop: [
+    'V trgovini so rekli, da spet nekaj gradijo. Ne vem, kaj, ampak sem proti.',
+    'Kruha spet ni bilo. Zato pa so bile novice.',
+    'Prodajalka ve, kaj kdo kupuje. In s kom.',
+  ],
+  noCemetery: [
+    'Kje nas bodo pa pokopali, ko bo čas? V Žlampah?',
+    'Občina raste, pokopališča pa ni. Kam bomo, ko bomo šli?',
   ],
   nearInn: [
     'Gremo na eno v gostilno? Samo na eno.',
@@ -199,7 +237,7 @@ export const THOUGHTS = {
 };
 
 export const FIXED_NEWS = [
-  'Župan ob 10. uri napihal 2 promila. Pojasnilo: »Bil sem na degustaciji v okviru projekta Okusi naše občine.«',
+  'Župan ob 10. uri napihal 2 promila. Pojasnilo: »Bil sem na degustaciji v okviru projekta Okusi {obcine}.«',
   'Novo krožišče ima štiri izvoze. Vsi vodijo do iste gostilne.',
   'Gasilci so v rekordnih štirih minutah pogasili požar. Gorel je žar pri gasilskem domu.',
   'Francka je prijavila soseda, ker je v nedeljo kosil ob 7.01.',
@@ -212,12 +250,87 @@ export const FIXED_NEWS = [
   'V vaški trgovini je zmanjkalo kruha. Krivca iščejo med tistimi, ki so ga kupili.',
   'Občinska uprava je uvedla e-poslovanje. Obrazec je treba natisniti, izpolniti in prinesti osebno.',
   'Kozolec pri Hribarjevih je razglašen za kulturno dediščino. Hribarjevi bi ga raje podrli in tam parkirali.',
-  'V Facebook skupini »Opazili ste v naši občini« je že 400 komentarjev o enem parkiranem avtomobilu.',
+  'V Facebook skupini »Opazili ste v {obcini}« je že 400 komentarjev o enem parkiranem avtomobilu.',
   'Lokalna kmetija je dobila evropska sredstva za digitalizacijo. Krava ima zdaj Instagram.',
   'Vremenarji napovedujejo lepo vreme. Vrtičkarji napovedujejo, da se motijo.',
   'Projekt kanalizacije je prestavljen na leto 2031. Iz istega razloga kot leta 2019, 2023 in 2027.',
   'Na avtobusni postaji so namestili novo klop. Avtobus še vedno ne vozi.',
+  'Občina je kupila nov semafor. Postavili so ga na edino križišče brez prometa, da se v miru navadi.',
+  'Upokojenci so ustanovili društvo za nadzor gradbišč. Člani se dobivajo vsak dan ob sedmih, z rokami na hrbtu.',
+  'Na oglasni deski pred trgovino visi listek »Najden ključ«. Visi od leta 2014. Ključa nihče ne pogreša.',
+  'Gostilničar je kavo podražil za deset centov. Vas je razdeljena na dva tabora, ki ne pijeta več skupaj.',
+  'Mežnar je zvonil eno uro prezgodaj. Pol vasi je prišlo k maši, druga polovica na kosilo.',
+  'Na seji občinskega sveta je svetnik zaspal in glasoval »za«. Predlog je bil sprejet soglasno.',
+  'Domači čebelar je dobil zlato medaljo za med. Sosed trdi, da so čebele njegove.',
+  'Trgovina je uvedla samopostrežno blagajno. Prodajalka stoji zraven in pove, kaj je treba stisniti.',
+  'Pred šolo so narisali nov prehod za pešce. Po mnenju krajanov je preveč bel.',
+  'Krajevna skupnost je za 3.000 evrov naročila študijo, ali je študija potrebna. Odgovor: da.',
+  'Na pošti so odprli drugo okence. Odprto je ob sredah, od 10.15 do 10.30.',
+  'Domači ansambel je izdal novo zgoščenko. Mama basista jo je kupila dvakrat.',
+  'Vaški pes Floki je tretjič zapored izbran za najbolj priljubljenega krajana. Župan je bil spet drugi.',
+  'Sosedov petelin je dobil tretji opomin zaradi kikirikanja ob 4.30. Petelin opominov ne bere.',
+  'Na igrišču so postavili nov koš. Žoge še niso kupili, ker razpis še teče.',
+  'Mlekarna je spremenila embalažo. Babice so prepričane, da je spremenila tudi okus.',
+  'Gospod Kranjc že 40 let z iste klopi komentira promet. Občina mu je podelila priznanje za prostovoljno delo.',
+  'Najbolj izposojana knjiga v knjižnici je letos »Kako se pritožiti na občino«.',
+  'Domača gostilna se hvali z Michelinovo zvezdico. Izkazalo se je, da je nalepka s pnevmatike.',
+  'Na glavni cesti so zamenjali luči. Zdaj so tako svetle, da sosedje ponoči berejo časopis brez očal.',
+  'Vaška klepetulja je izvedela novico, še preden se je zgodila.',
+  'Kmet Jože je s traktorjem 40 minut vozil pred kolono avtomobilov. Pravi, da je imel lep dan.',
+  'Na občini so izgubili načrt nove ceste. Ker je cesta že zgrajena, zdaj iščejo, kje točno stoji.',
+  'Gasilci so z drevesa reševali mačko. Mačka je sestopila sama, gasilce pa so morali reševati sosedje.',
+  'Novi župnik je pridigo skrajšal na 15 minut. Verniki so zaskrbljeni, da je bolan.',
+  'Zaživela je nova občinska spletna stran. Prvi dan je imela 14 obiskov, 12 z občine.',
+  'Lokalni vplivnež je posnel video o luknji na glavni cesti. Luknja ima zdaj več sledilcev kot občina.',
+  'Na zboru krajanov so se dogovorili, da se ne bodo dogovorili.',
+  'Uvedli so ločeno zbiranje odpadkov. Sosed Franc vse tri vrečke še vedno odpelje v isti gozd.',
+  'Lokalni radio je 24 ur predvajal isto polko. Poslušanost se je podvojila.',
+  'Ob igrišču so odprli fitnes na prostem. Najbolj priljubljena naprava je klop zraven.',
+  'Gostilna Pri lipi je po 50 letih spremenila jedilnik. Dodali so ričet.',
+  'Na vasi so dobili optični internet. Najhitrejši je še vedno ustni.',
+  'Šolarji so na natečaju narisali občino prihodnosti. Na vseh risbah je luknja na glavni cesti še vedno tam.',
+  'Lovska družina je na lovu ujela predvsem prehlad.',
+  'Krajani so zbrali podpise proti novi trafo postaji. Peticijo so natisnili s tiskalnikom, priklopljenim nanjo.',
+  'Na pokopališču so uvedli parkirnino. Stalni obiskovalci so ogorčeni, a se ne pritožujejo.',
+  'Zgornje Žlampe so dobile nov vodnjak. Pri nas so takoj ustanovili komisijo za ugotavljanje, zakaj mi ne.',
+  'Napovedovalec na radiu je ime {obcine} izgovoril narobe. Trikrat. Zadnjič namenoma.',
+  'Turistična zveza je {obcino} uvrstila med deset najlepših krajev. Na seznamu je enajst krajev.',
+  'Zgornje Žlampe so {obcini} poslale voščilo za praznik. Na kuverti je bil napačen naslov.',
+  'Nova spletna stran {obcine} ima 14 podstrani in nobene uporabne informacije.',
+  'Na tablo ob vstopu v {obcino} je nekdo dopisal »Dobrodošli. Še.«',
 ];
+
+/** Ticker news that only fits one season (keys match seasons.js). */
+export const SEASON_NEWS = {
+  winter: [
+    'Zimska služba je plužila tako vneto, da je odstranila tudi tri poštne nabiralnike in vrtnega palčka.',
+    'Na hribu so odprli smučišče: ena vlečnica, en snežni top in malo snega.',
+    'Na božičnem sejmu je kuhanega vina zmanjkalo po 20 minutah. Kuhanega čaja niso niti odprli.',
+    'Dedek Mraz je zamudil, ker je obtičal za plugom.',
+    'Sosedje tekmujejo, kdo ima več lučk na hiši. Elektro je poslal čestitke in račun.',
+  ],
+  spring: [
+    'Začela se je sezona košnje. Prva kosilnica je zabrnela v nedeljo ob šestih zjutraj.',
+    'Na vrtovih so posadili prve sadike. Babice že stavijo, čigav fižol bo višji.',
+    'Spomladanska čistilna akcija: ob cesti so našli 40 vreč smeti in avto iz leta 1987.',
+    'Prispele so prve lastovke. Isti dan je prispela tudi prva pritožba zaradi lastovk.',
+    'Gasilci so začeli pripravljati veselico. Šotor stoji, ansambel je potrjen, vaja je prestavljena.',
+  ],
+  summer: [
+    'Ob reki so postavili tablo »Kopanje prepovedano«. Ob njej se je kopalo rekordno število ljudi.',
+    'Vročinski val: v trgovini je zmanjkalo sladoleda, v gostilni piva, na občini pa potrpežljivosti.',
+    'Turisti so odkrili {obcino}. Iskali so sicer sosednjo.',
+    'Komarji letos letijo v organiziranih skupinah. Krajani sumijo, da jih pošiljajo iz Zgornjih Žlamp.',
+    'Na vaškem kopališču so podaljšali delovni čas. Reševalec ne ve za to.',
+  ],
+  autumn: [
+    'Na sejmu je zmagala buča, težka 312 kilogramov. Lastnik trdi, da jo je zalival samo z dežnico.',
+    'Trgatev je uspela. Količina je skromna, kakovost pa po besedah vinogradnika »boljša kot pri sosedu«.',
+    'Gobarji so v gozdu našli 30 kilogramov jurčkov. Kje točno, ne povedo niti pod prisego.',
+    'Listje pada na cesto. Krajani sprašujejo, kdo bo za to odgovarjal.',
+    'Martinovanje: mošt je postal vino, nekaj krajanov pa zelo zgovornih.',
+  ],
+};
 
 export const BUILD_NEWS = {
   road: [
@@ -240,9 +353,33 @@ export const BUILD_NEWS = {
     '{Loc} so odprli gostilno. Prvi dan so prodali 300 malic in pojedli vse zaloge zaseke.',
     'Nova gostilna {loc}: kuhinja do 22. ure, debate o politiki do treh zjutraj.',
   ],
+  flats: [
+    '{Loc} je zrasel blok. Sosedje so dobili senco, parkirišče pa dvajset novih prepirov.',
+    'Novi blok {loc}: arhitekt pravi, da gre za »sodobno interpretacijo socialističnega realizma«.',
+  ],
   factory: [
     '{Loc} je zrasla tovarna. Kaj proizvaja, še ni znano, smrdi pa že zdaj.',
     'Nova tovarna {loc} obljublja 40 delovnih mest. Zaenkrat je zaposlila direktorja, njegovo ženo in bratranca.',
+  ],
+  clinic: [
+    '{Loc} so odprli zdravstveni dom. Prvi prosti termin pri zobozdravniku je marca 2031.',
+    'Nov zdravstveni dom {loc}: čakalnica ima 40 stolov, ordinacija enega zdravnika.',
+  ],
+  police: [
+    '{Loc} so odprli policijsko postajo. Radar je v prvem tednu ujel župana. Dvakrat.',
+    'Nova policijska postaja {loc}. Policista sta prvi dan rešila primer izginule kokoši. Kokoš je bila doma.',
+  ],
+  shop: [
+    '{Loc} so odprli trgovino. Prvi dan je zmanjkalo kruha, drugi dan pa tem za pogovor.',
+    'Nova trgovina {loc}: odprta do 19. ure, opravljanje sosedov do zaprtja.',
+  ],
+  vineyard: [
+    '{Loc} so zasadili vinograd. Lastnik že zdaj ve, da bo vino »boljše kot pri sosedu«.',
+    'Nov vinograd {loc}. Zidanica ima že zdaj več obiskovalcev kot knjižnica.',
+  ],
+  cemetery: [
+    '{Loc} so uredili pokopališče. Domačini so jezni, vsi ostali pa so si oddahnili.',
+    'Novo pokopališče {loc}. Upokojenci so si takoj ogledali najlepše parcele.',
   ],
   hall: [
     '{Loc} so odprli večnamensko dvorano. Namen še iščejo.',
@@ -264,6 +401,12 @@ export const BUILDING_GENITIVE = {
   hall: 'večnamenske dvorane',
   inn: 'gostilne',
   factory: 'tovarne',
+  flats: 'bloka',
+  clinic: 'zdravstvenega doma',
+  police: 'policijske postaje',
+  shop: 'trgovine',
+  vineyard: 'vinograda',
+  cemetery: 'pokopališča',
 };
 
 export const NO_MONEY = [
@@ -272,11 +415,28 @@ export const NO_MONEY = [
   'Blagajna je prazna. Računovodkinja je odprla že drugo kavo.',
 ];
 
+// What a building without road access says (building panel and toast).
+export const NO_ROAD = {
+  house: 'Do stavbe ni ceste, nihče se ne vseli.',
+  flats: 'Do stavbe ni ceste, nihče se ne vseli.',
+  inn: 'Do stavbe ni ceste, gostov ni.',
+  factory: 'Do stavbe ni ceste, delavcev ni.',
+  firehouse: 'Do stavbe ni ceste, gasilcev ni.',
+  hall: 'Do stavbe ni ceste, nihče ne pride.',
+  clinic: 'Do stavbe ni ceste, zdravnika ni.',
+  police: 'Do stavbe ni ceste, policistov ni.',
+  shop: 'Do stavbe ni ceste, kupcev ni.',
+};
+
 export const BUILD_ERRORS = {
   roundaboutNeedsRoad: 'Krožišče gre na cesto. Na travnik ga postaviš šele v drugem mandatu.',
   roundaboutTwice: 'Tu že je krožišče. Krožišče v krožišču bomo preizkusili v tretjem mandatu.',
   occupied: 'Tu že nekaj stoji. Dve stvari na enem mestu gradimo samo v proračunu.',
   church: 'Na cerkev ne gradimo. Župnik ima višje zveze od tebe.',
+  outside: 'To je gozd izven občine. Tu lahko gradijo samo medvedi.',
+  notOwned: 'To zemljišče še ni naše. Najprej ga kupi – klikni nanj, ko nimaš izbranega orodja.',
+  factoryPopulation: 'Za tovarno potrebuješ vsaj {min} prebivalcev, zdaj jih je {now}. Kdo bo pa delal? Bratranec?',
+  clinicPopulation: 'Za zdravstveni dom potrebuješ vsaj {min} prebivalcev, zdaj jih je {now}. Za tako malo ljudi noben zdravnik ne pride.',
   demolishChurch: 'Cerkve ni mogoče podreti. Župnik ima boljše zveze kot ti.',
   demolishGrass: 'Travnika ne moreš podreti. Lahko ga kvečjemu pokosiš, ampak ne v nedeljo.',
 };
@@ -284,6 +444,7 @@ export const BUILD_ERRORS = {
 export const LEVER_TEXTS = {
   cousin: {
     name: 'Razpis za bratranca',
+    label: 'Bratranec',
     icon: '🤝',
     desc: 'Skrivni račun +12–25 tisoč, tveganje afere +10–18',
     projects: ['obnovo pločnika', 'barvanje klopi', 'svetovanje o svetovanju', 'študijo izvedljivosti študije', 'košnjo občinske trave'],
@@ -293,6 +454,7 @@ export const LEVER_TEXTS = {
   },
   praise: {
     name: 'Glasilo: Hvalospevi županu',
+    label: 'Hvalospevi',
     icon: '📰',
     desc: 'Propaganda gor, nergači se razjezijo',
     news: [
@@ -303,6 +465,7 @@ export const LEVER_TEXTS = {
   },
   neighbor: {
     name: 'Glasilo: Glejte sosednjo občino!',
+    label: 'Glejte Žlampe',
     icon: '👉',
     desc: 'Vsem fovšija dol, jeza gre na Zgornje Žlampe',
     news: [
@@ -313,6 +476,7 @@ export const LEVER_TEXTS = {
   },
   snow: {
     name: 'Nenadni sneg sredi maja',
+    label: 'Sneg v maju',
     icon: '❄️',
     desc: 'Sreča dol, zimska služba zasluži, mediji pozabijo na afere',
     news: [
@@ -320,11 +484,10 @@ export const LEVER_TEXTS = {
       'Sneg je presenetil vse razen ponudnika zimske službe, ki je pluge naoljil že prejšnji teden.',
     ],
     toast: 'Sneži! Zimska služba zasluži, mediji fotografirajo zasnežene tulipane.',
-    winterToast: 'Sneg pozimi? Nihče ni presenečen. Zimska služba ni zaslužila nič dodatnega, mediji niso opazili.',
-    winterNews: 'Pozimi je zapadel sneg. Novica je zbudila toliko zanimanja kot vremenska napoved za včeraj.',
   },
   party: {
     name: 'Gasilska veselica',
+    label: 'Veselica',
     icon: '🎉',
     desc: 'Vsi na ples k gasilskemu domu. Fovšija dol, sreča gor, tveganje afere −5. Pozor: alkohol.',
     news: [
@@ -335,12 +498,13 @@ export const LEVER_TEXTS = {
   },
   minister: {
     name: 'Kosilo z ministrom',
+    label: 'Minister',
     icon: '🍽️',
     desc: 'Plača skrivni račun. Čez 2 meseca 70 % možnosti za 70.000 € v proračun.',
     fromSecret: true,
     news: [
       'Župan je ministra peljal na kosilo. Pet hodov, tri vina, račun plačan v gotovini.',
-      'Minister je bil na kosilu v naši občini. Pohvalil je žgance in obljubil »da bo videl, kaj se da«.',
+      'Minister je bil na kosilu v {obcini}. Pohvalil je žgance in obljubil »da bo videl, kaj se da«.',
     ],
     toast: 'Kosilo je bilo odlično. Zdaj čakamo, ali se bo minister spomnil na nas.',
     success: 'Ministrstvo je občini nakazalo 70.000 € za »razvoj podeželja«. Kosilo se je obrestovalo.',
@@ -348,7 +512,8 @@ export const LEVER_TEXTS = {
   },
   media: {
     name: 'Utišaj medije',
-    icon: '🤫',
+    label: 'Utišaj medije',
+    icon: '🙊',
     desc: 'Plača skrivni račun. Tveganje afere −20.',
     fromSecret: true,
     news: [
@@ -370,6 +535,17 @@ export const UNREST = {
     toast: 'Protest je ušel izpod nadzora! Mesečno bo nekaj zgorelo.',
     news: 'Protest se je sprevrgel v nerede. Gasilci so prišli hitro, a so najprej postavili šotor.',
   },
+  // Unrest out of plain unhappiness (no scandal needed).
+  protestMood: {
+    label: 'PROTESTI',
+    toast: 'Občani so nezadovoljni in so prišli na ulice. Škandala ne potrebujejo, dovolj jim je vsakdan.',
+    news: 'Pri cerkvi protestirajo nezadovoljni občani. Na transparentih piše »Dovolj je!« in »Kje je moje krožišče?«.',
+  },
+  riotMood: {
+    label: 'NEREDI',
+    toast: 'Nezadovoljstvo je prekipelo – neredi! Če trajajo 3 mesece, bo svet izglasoval nezaupnico.',
+    news: 'Nezadovoljstvo v občini je prekipelo v nerede. Občinski svetniki že šepetajo o nezaupnici.',
+  },
   // Riot cooling down to a protest.
   cooling: {
     toast: 'Neredi so se polegli. Protestniki ostajajo, a so pospravili bakle.',
@@ -381,6 +557,9 @@ export const UNREST = {
   },
 };
 
+/** A party broken up because the crowd turned into a protest. */
+export const PARTY_BROKEN_UP = 'Veselico so prekinili protestniki. Ansambel je pobegnil s harmoniko, šotor je ostal brez gostov.';
+
 export const BURN_NEWS = {
   house: 'Med neredi je {loc} zgorela hiša. Lastnik pravi, da je bila zavarovana bolje kot občina.',
   firehouse: 'Ironija meseca: med neredi je {loc} zgorel gasilski dom.',
@@ -388,6 +567,24 @@ export const BURN_NEWS = {
   roundabout: 'Protestniki so {loc} prevrnili kip v krožišču. Ostala je le cesta in pločevinka barve.',
   inn: 'Med neredi je {loc} zgorela gostilna. Gostje so vztrajali do zadnjega piva.',
   factory: 'Med neredi je {loc} zgorela tovarna. Sosedje pravijo, da smrdi enako kot prej.',
+  flats: 'Med neredi je {loc} gorel blok. Stanovalci so se prvič v zgodovini vsi pozdravili – na parkirišču.',
+  clinic: 'Med neredi je {loc} gorel zdravstveni dom. Čakalna vrsta je ostala nepoškodovana.',
+  police: 'Med neredi je {loc} gorela policijska postaja. Policista sta požar zapisala v zapisnik.',
+  shop: 'Med neredi je {loc} zgorela trgovina. Prej so jo še na hitro izpraznili – brez blagajne.',
+};
+
+/** News from the public buildings (services.js). */
+export const SERVICE_NEWS = {
+  harvest: [
+    'Trgatev: vinogradi so občini prinesli {money}. Degustacije s pravimi ljudmi so se zavlekle do jutra.',
+    'Letošnja trgatev je prinesla {money}. Vino je po besedah vinogradnikov »boljše kot v Zgornjih Žlampah«.',
+  ],
+  noCemetery: [
+    'Občani sprašujejo, kje jih bodo pokopali. Občina odgovarja, da se o tem še ne pogovarja.',
+    'Pogreb je moral v Zgornje Žlampe. Tamkajšnji župan je imel govor. O nas.',
+    'Upokojenci zahtevajo pokopališče. »Ne bomo hodili umirat v sosednjo občino!«',
+  ],
+  policeSaved: 'Policija je med neredi {loc} preprečila požar. Napisala je tudi tri kazni za parkiranje.',
 };
 
 export const TAX_NEWS = {
@@ -419,8 +616,11 @@ export const VANDAL_NEWS = {
 
 export const LEVER_ERRORS = {
   snowActive: 'Že sneži. Še več snega bi bilo sumljivo celo za zimsko službo.',
+  snowWinter: 'Pozimi sneg nikogar ne preseneti. Počakaj na pomlad, ko bo spet pravi šok.',
   partyActive: 'Veselica je že v teku. Dveh hkrati ne zmore niti ansambel.',
+  partyUnrest: 'Med protesti ni veselice. Ansambel ne igra pred transparenti.',
   noSecret: 'Na skrivnem računu ni dovolj. Bratranec bo moral spet na razpis.',
+  firehouseNoRoad: 'Do gasilskega doma ni ceste. Gasilci ne bodo nosili šotora čez travnik.',
   ministerPending: 'Minister še prebavlja zadnje kosilo. Počakaj, da se odloči.',
   noFirehouse: 'Brez gasilskega doma ni veselice. Najprej dom, potem šotor.',
 };

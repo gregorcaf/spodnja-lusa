@@ -1,15 +1,17 @@
-// Scrolling news ticker: rotates the fixed local news, with triggered news jumping the queue.
+// Scrolling news ticker: shuffled local news, with triggered news jumping the queue.
 
-import { FIXED_NEWS } from '../game/texts.js';
+import { NewsDeck } from '../game/newsDeck.js';
 
 const SPEED = 75; // px per second
 
 export class NewsTicker {
-  constructor(root) {
+  /** @param season () => current season key, so seasonal stories appear in their season */
+  constructor(root, { season, format = (t) => t } = {}) {
+    this.format = format;
     this.viewport = root.querySelector('.news-viewport');
     this.track = root.querySelector('.news-track');
     this.queue = [];
-    this.fixedIndex = Math.floor(Math.random() * FIXED_NEWS.length);
+    this.deck = new NewsDeck(season);
     this.x = this.viewport.clientWidth * 0.3;
     this.items = []; // { el, width }
     this.width = 0;
@@ -21,9 +23,7 @@ export class NewsTicker {
 
   next() {
     if (this.queue.length) return { text: this.queue.shift(), hot: true };
-    const text = FIXED_NEWS[this.fixedIndex % FIXED_NEWS.length];
-    this.fixedIndex++;
-    return { text, hot: false };
+    return { text: this.format(this.deck.next()), hot: false };
   }
 
   append() {

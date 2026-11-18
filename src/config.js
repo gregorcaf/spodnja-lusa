@@ -2,9 +2,18 @@
 // CONFIG is a live object: game logic reads it on every action, the dev panel mutates it.
 
 export const DEFAULT_CONFIG = {
-  // House tax, set by the player in the sidebar.
+  // Population comes from housing: a house is 1 household, a block of flats several.
+  population: {
+    perHousehold: 4, // residents per household
+    flatsHouseholds: 5, // households in one block of flats
+    factoryMin: 120, // a factory needs workers
+    extraWalkerEvery: 25, // one extra (anonymous) walker per this many new residents
+    maxExtraWalkers: 12, // the streets should feel alive, not crowded
+  },
+
+  // Household tax, set by the player in the sidebar.
   taxes: {
-    start: 300, // € per house per month at the start
+    start: 300, // € per household per month at the start
     neutral: 300, // at this rate the tax doesn't change happiness
     step: 50,
     min: 0,
@@ -33,6 +42,28 @@ export const DEFAULT_CONFIG = {
     // Income buildings: they earn money every month, with a catch.
     inn: { cost: 25000, upkeep: 0, income: 800, homeHappy: 8, envyElse: 4, allHappy: 0 },
     factory: { cost: 80000, upkeep: 0, income: 3000, homeHappy: -6, envyElse: 5, allHappy: 0 },
+    // Block of flats: many households (= lots of tax), but the neighbours don't like it.
+    flats: { cost: 45000, upkeep: 200, homeHappy: -3, envyElse: 1, allHappy: 0 },
+    // Public services: each has its own rule (see services.js).
+    clinic: { cost: 90000, upkeep: 1500, homeHappy: 6, envyElse: 1, allHappy: 4 }, // everyone uses it: hardly any envy
+    police: { cost: 50000, upkeep: 1200, income: 600, homeHappy: -2, envyElse: 2, allHappy: 0 }, // fines bring a little money
+    shop: { cost: 20000, upkeep: 0, income: 500, homeHappy: 5, envyElse: 2, allHappy: 0 },
+    vineyard: { cost: 15000, upkeep: 100, homeHappy: 3, envyElse: 2, allHappy: 0 },
+    cemetery: { cost: 25000, upkeep: 300, homeHappy: -5, envyElse: -3, allHappy: 0 }, // the others are glad it isn't theirs
+  },
+
+  // Special rules of the public buildings.
+  services: {
+    clinicMin: 160, // residents needed before a doctor agrees to come
+    clinicMonthlyHappy: 1, // everyone, every month, while a clinic works (more clinics don't add up)
+    policeVandalismShare: 0.5, // protest vandalism costs only this share with a police station
+    shopMonthlyHappy: 0.5, // residents of a district with a shop ("no need to drive to town")
+    vineyardHarvest: 8000, // € per vineyard at the end of September
+    vineyardHarvestAffair: 1.5, // per vineyard: "wine tastings" with the right people
+    vineyardPartyBonus: 0.15, // the party works this much better per vineyard …
+    vineyardPartyMax: 3, // … counting at most this many
+    cemeteryNeededAt: 140, // residents: from here on, a municipality without a cemetery grumbles
+    cemeteryMissingHappy: -1.5, // monthly, for everyone, while there is none
   },
 
   // Demolition: single cost, effect depends on what is demolished
@@ -46,6 +77,12 @@ export const DEFAULT_CONFIG = {
       hall: { homeHappy: -4, envyElse: -10, allHappy: 3 },
       inn: { homeHappy: -8, envyElse: -2, allHappy: 0 },
       factory: { homeHappy: 6, envyElse: -3, allHappy: 0 }, // the neighbours finally breathe
+      flats: { homeHappy: 2, envyElse: -1, allHappy: 0 }, // the neighbours get their view back
+      clinic: { homeHappy: -8, envyElse: 0, allHappy: -4 },
+      police: { homeHappy: 2, envyElse: -1, allHappy: 0 }, // nobody misses the radar
+      shop: { homeHappy: -6, envyElse: -1, allHappy: 0 },
+      vineyard: { homeHappy: -4, envyElse: -1, allHappy: 0 },
+      cemetery: { homeHappy: 4, envyElse: 3, allHappy: -2 }, // relief at home, worry everywhere else
     },
   },
 
@@ -66,7 +103,8 @@ export const DEFAULT_CONFIG = {
   levers: {
     cousin: { cost: 4000, secretMin: 12000, secretMax: 25000, affairMin: 10, affairMax: 18 },
     praise: { cost: 2000, propaganda: 8, decay: 0.75, recovery: 0.1, grumblerEnvy: 2 },
-    neighbor: { cost: 2000, envyReduction: 12, decay: 0.75, recovery: 0 },
+    // Slow recovery: a renewable (but weak) tool against envy, which grows every month.
+    neighbor: { cost: 2000, envyReduction: 12, decay: 0.75, recovery: 0.03 },
     snow: { cost: 6000, happiness: -8, secret: 8000, affair: -10 },
     // affair: flat change of the affair risk (not weakened by repeated use)
     // The party is fun, but weaker than it used to be – and alcohol has consequences (see partyIncidents.js).
@@ -76,7 +114,7 @@ export const DEFAULT_CONFIG = {
       happiness: 6,
       affair: -5,
       decay: 0.75,
-      recovery: 0,
+      recovery: 0.03,
       duration: 20,
       drunkMin: 6, // citizens drunk after the party
       drunkMax: 9,
@@ -110,6 +148,12 @@ export const DEFAULT_CONFIG = {
     protestVandalism: 2000, // € per protest month (graffiti, broken benches)
     protestDamageChance: 0.35, // chance per protest month to topple a statue or tear up a road
     extraAffairDecay: 3, // media lose interest faster during unrest
+    // Unhappiness alone also brings people onto the street (support = citizens on the mayor's side, of 25).
+    // Shares of the named citizens on the mayor's side (the sample grows with every hamlet).
+    // (Simulated: at 32 %/16 % even an active mayor got 10/30 early elections; at 24 %/12 % about 2/30.)
+    supportProtestAtMost: 0.24,
+    supportRiotAtMost: 0.12,
+    noConfidenceMonths: 3, // riot months in a row before the council calls early elections
   },
 
   mood: {
@@ -133,15 +177,18 @@ export const DEFAULT_CONFIG = {
     homeBias: 0.85, // preference for staying in the home district
     thoughtMin: 5, // seconds between thought changes
     thoughtMax: 9,
-    bubbleEvery: 4, // seconds between speech bubbles
+    bubbleEvery: 26, // seconds of quiet between speech bubbles (one every ~30 s; one villager speaks at a time)
     bubbleDuration: 4,
   },
 
   // New buildings: scaffolding first, then an opening ceremony waiting for the mayor.
   construction: {
-    months: { house: 0.12, roundabout: 0.3, firehouse: 0.3, hall: 0.45, inn: 0.25, factory: 0.4 },
+    months: {
+      house: 0.12, roundabout: 0.3, firehouse: 0.3, hall: 0.45, inn: 0.25, factory: 0.4, flats: 0.35,
+      clinic: 0.45, police: 0.3, shop: 0.2, vineyard: 0.15, cemetery: 0.2,
+    },
     ribbonWindow: 0.7, // game-months the ribbon waits for the mayor
-    ribbonPropaganda: { roundabout: 4, firehouse: 3, hall: 5, inn: 2, factory: 3 },
+    ribbonPropaganda: { roundabout: 4, firehouse: 3, hall: 5, inn: 2, factory: 3, flats: 2, clinic: 5, police: 2, shop: 2, vineyard: 1, cemetery: 1 },
     ribbonDistrictHappy: 3,
     missedDistrictHappy: -2,
   },
@@ -154,8 +201,16 @@ export const DEFAULT_CONFIG = {
     shakeEnvy: -2,
     shakeCooldown: 3, // months before the same citizen is impressed again
     campaignShakePropaganda: 1,
-    listenWishChance: 0.6, // listening sometimes turns into a wish
+    listenWishChance: 0.35, // listening sometimes turns into a wish
     listenHappy: 2,
+  },
+
+  // Buying land around the municipality: each plot becomes a new hamlet ("zaselek").
+  hamlets: {
+    basePrice: 80000,
+    priceStep: 40000, // each next plot costs this much more
+    newCitizens: 3, // named citizens moving in with the first families
+    othersEnvy: 3, // the old quarters are a bit jealous of all the attention
   },
 
   // Live events on the map (bear, tractor, wedding, fire, journalist).
@@ -165,16 +220,25 @@ export const DEFAULT_CONFIG = {
     durationScale: 1, // how long an event waits for a click (1 = default per event, ~12–18 s at 1×)
   },
 
+  // Anti-corruption investigation (KPK): a special card when the mayor gets greedy.
+  kpk: {
+    affairAtLeast: 60, // triggers when the affair risk is this high …
+    secretAtLeast: 50000, // … or the secret account this full
+    monthlyChance: 0.25,
+    cooldownMonths: 12, // at most one investigation a year
+  },
+
   dilemmas: {
-    minMonths: 1, // game-months between dilemma cards
-    maxMonths: 2,
+    minMonths: 5, // game-months between dilemma cards (about every 2.5–3.5 minutes at 1×)
+    maxMonths: 7,
+    firstAfter: [2.5, 3.5], // the first card comes after this many months
   },
 
   elections: {
     termMonths: 48, // a term lasts 4 years
     campaignMonths: 3, // campaign before the vote
     campaignPraiseBoost: 1.5, // "Hvalospevi" work better during the campaign
-    votesToWin: 13, // of 25
+    // Winning needs more than half of all votes (districts weighted by population).
     envyDriftPerTerm: 0.5, // every new term people expect more
     recountCost: 30000, // € from the secret account
     recountChance: 0.5,
@@ -192,8 +256,8 @@ export const DEFAULT_CONFIG = {
   },
 
   wishes: {
-    everyMonths: 0.8, // game-months between new wishes
-    maxActive: 3,
+    everyMonths: 3.5, // game-months between new wishes (about one every 1¾ minutes at 1×)
+    maxActive: 2, // open wishes at the same time
     deadlineMonths: 3,
     fulfillHappy: 15,
     fulfillEnvy: -5,

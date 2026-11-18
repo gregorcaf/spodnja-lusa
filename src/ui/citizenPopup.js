@@ -1,7 +1,7 @@
 // Popup with citizen details; stays live-updated while open.
 
 import { DISTRICTS } from '../game/map.js';
-import { characterName, moodLabel, envyTargetLabel } from '../game/citizens.js';
+import { characterName, envyTargetLabel } from '../game/citizens.js';
 import { moodOf } from '../game/stats.js';
 import { escapeHtml } from './tooltip.js';
 import { wishAction } from '../game/wishes.js';
@@ -24,18 +24,16 @@ export function createCitizenPopup(game, { onPayWish, onBuyVote, onEnvelope, onS
         <span class="cp-dot" style="background:${DOT[moodOf(c, s)]}"></span>
         <div>
           <div class="cp-name">${escapeHtml(c.name)}</div>
-          <div class="cp-role">${characterName(c)} · ${moodLabel(c, s)}</div>
+          <div class="cp-role">${characterName(c)} · ${DISTRICTS[c.home].name}</div>
         </div>
         <button class="cp-close" title="Zapri">×</button>
       </div>
       <div class="cp-body">
-        <div class="cp-row"><span class="k">Domači konec</span><span>${DISTRICTS[c.home].name}</span></div>
-        <div class="cp-row"><span class="k">Sreča</span><span>${Math.round(c.happy)} / 100</span></div>
+        <div class="cp-row" title="Sreča"><span class="k">😊</span><span>${Math.round(c.happy)}</span></div>
         <div class="bar happy"><div style="width:${c.happy}%"></div></div>
-        <div class="cp-row"><span class="k">Fovšija</span><span>${Math.round(c.envy)} / 100</span></div>
+        <div class="cp-row" title="Fovšija – ${escapeHtml(envyTargetLabel(c))}"><span class="k">😒</span><span>${Math.round(c.envy)}</span></div>
         <div class="bar envy"><div style="width:${c.envy}%"></div></div>
         <div class="cp-thought">»${escapeHtml(c.thought)}«</div>
-        <div class="cp-envy"><span class="k">Fovšen${c.female ? 'a' : ''} je:</span> ${escapeHtml(envyTargetLabel(c))}</div>
         <div class="cp-mayor">
           <button class="cp-shake" title="Župan stopi do občana in mu stisne roko">🤝 Rokuj se</button>
           <button class="cp-listen" title="Župan prisluhne – včasih iz tega nastane želja">👂 Prisluhni</button>
@@ -59,9 +57,9 @@ export function createCitizenPopup(game, { onPayWish, onBuyVote, onEnvelope, onS
       const action =
         wish.cost != null
           ? `<div class="cp-pay-row"><button class="cp-pay" data-uid="${wish.uid}" ${s.budget < wish.cost ? 'disabled' : ''}>${escapeHtml(wishAction(wish, s))}</button>
-             <button class="cp-pay secret" data-uid="${wish.uid}" data-secret="1" ${s.secret < wish.cost ? 'disabled' : ''}>iz žepa</button></div>`
+             <button class="cp-pay secret" data-uid="${wish.uid}" data-secret="1" title="Iz skrivnega računa" ${s.secret < wish.cost ? 'disabled' : ''}>🤫 iz žepa</button></div>`
           : `<div class="muted">🔨 ${escapeHtml(wishAction(wish, s))}</div>`;
-      parts.push(`<div class="cp-wish"><strong>Želja</strong> (še ${wish.monthsLeft} mes.): ${escapeHtml(wish.text)}${action}</div>`);
+      parts.push(`<div class="cp-wish">💭 ${escapeHtml(wish.text)} <span class="muted">· ${wish.monthsLeft} mes.</span>${action}</div>`);
     }
     if (c.loyalMonths > 0) parts.push(`<div class="cp-tag loyal">💚 Zvest${c.female ? 'a' : ''} županu še ${c.loyalMonths} mes.</div>`);
     if (c.grudgeMonths > 0) parts.push(`<div class="cp-tag grudge">😤 Zamera še ${c.grudgeMonths} mes.</div>`);
@@ -71,13 +69,12 @@ export function createCitizenPopup(game, { onPayWish, onBuyVote, onEnvelope, onS
       // Outside the campaign: an envelope buys loyalty for a year.
       const check = checkEnvelope(s, c.id);
       parts.push(
-        `<button class="cp-envelope" ${check.ok ? '' : `disabled title="${escapeHtml(check.reason)}"`}>💌 Podari kuverto · ${formatEuro(envelopePrice(s))} iz skrivnega računa</button>
-         <div class="cp-note">Zvest${c.female ? 'a' : ''} 12 mes. · tveganje afere +5</div>`,
+        `<button class="cp-envelope" title="${escapeHtml(check.ok ? `Zvest${c.female ? 'a' : ''} 12 mes. · 🕵️ +5` : check.reason)}" ${check.ok ? '' : 'disabled'}>💌 Kuverta · 🤫 ${formatEuro(envelopePrice(s))}</button>`,
       );
     } else if (s.campaign && c.id !== s.opponentId) {
       const check = checkBuyVote(s, c.id);
       parts.push(
-        `<button class="cp-buy" ${check.ok ? '' : `disabled title="${escapeHtml(check.reason)}"`}>💰 Kupi glas · ${formatEuro(votePrice(s))} iz skrivnega računa</button>`,
+        `<button class="cp-buy" ${check.ok ? '' : `disabled title="${escapeHtml(check.reason)}"`}>💰 Kupi glas · 🤫 ${formatEuro(votePrice(s))}</button>`,
       );
     }
     return parts.join('');

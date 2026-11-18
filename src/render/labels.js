@@ -2,16 +2,23 @@
 
 import * as THREE from 'three';
 import { CONFIG } from '../config.js';
-import { DISTRICTS, HALF } from '../game/map.js';
+import { DISTRICTS, CORE_SIZE, PLOTS, activeDistricts, districtCenter } from '../game/map.js';
+import { tileToWorld } from './coords.js';
 
-// Labels sit inside each district, towards its outer corner, so all four stay on screen.
-const INSET = HALF - 1.6;
+// Quarter labels sit towards their outer corner; hamlet labels in the middle of their plot.
+const INSET = CORE_SIZE / 2 - 1.6;
 const CORNERS = [
   [-INSET, -INSET],
   [INSET, -INSET],
   [-INSET, INSET],
   [INSET, INSET],
 ];
+
+function labelPos(id) {
+  if (id < 4) return new THREE.Vector3(CORNERS[id][0], 0, CORNERS[id][1]);
+  const c = districtCenter(id);
+  return tileToWorld(c.x, c.y);
+}
 
 export class Labels {
   constructor(container, camera) {
@@ -20,13 +27,8 @@ export class Labels {
     this.tmp = new THREE.Vector3();
     this.tmp2 = new THREE.Vector3();
 
-    this.districtEls = DISTRICTS.map((d, i) => {
-      const el = document.createElement('div');
-      el.className = 'district-label';
-      el.innerHTML = `<span class="name">${d.name}</span><span class="extra"></span>`;
-      container.appendChild(el);
-      return { el, extra: el.querySelector('.extra'), pos: new THREE.Vector3(CORNERS[i][0], 0, CORNERS[i][1]) };
-    });
+    this.districtEls = new Map(); // district id -> { el, extra, pos }
+    this.saleEls = new Map(); // plot id -> element ("na prodaj" with price)
 
     this.bubble = null; // { el, citizenId, remaining }
     this.bubbleTimer = 2;
@@ -51,12 +53,38 @@ export class Labels {
       const bar = el.querySelector('.em-bar > div');
       bar.style.width = `${(Math.max(0, r.left) * 100).toFixed(1)}%`;
       bar.classList.toggle('low', r.left < 0.3);
-      this.place(el, this.tmp2.set(r.x - 7.5, 1.0, r.y - 7.5));
+      this.place(el, tileToWorld(r.x, r.y, this.tmp2).setY(1.0));
     }
     for (const [key, el] of this.ribbonMarkers) {
       if (!keep.has(key)) {
         el.remove();
         this.ribbonMarkers.delete(key);
+      }
+    }
+  }
+
+  /** 🚧 markers above buildings that have no road (and therefore don't work). */
+  updateNoRoadMarkers(list) {
+    this.noRoadMarkers ??= new Map();
+    const keep = new Set();
+    for (const b of list) {
+      const key = `${b.x},${b.y}`;
+      keep.add(key);
+      let el = this.noRoadMarkers.get(key);
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'noroad-marker';
+        el.textContent = '🚧';
+        el.title = 'Ni ceste';
+        this.container.appendChild(el);
+        this.noRoadMarkers.set(key, el);
+      }
+      this.place(el, tileToWorld(b.x, b.y, this.tmp2).setY(0.9));
+    }
+    for (const [key, el] of this.noRoadMarkers) {
+      if (!keep.has(key)) {
+        el.remove();
+        this.noRoadMarkers.delete(key);
       }
     }
   }
@@ -134,12 +162,42 @@ export class Labels {
     }
   }
 
-  /** Shows "fovšija 42" next to district names while the envy map is on. */
+  /** Labels for existing districts, and "for sale" tags (with price) on plots not bought yet. */
+  syncDistricts(state, price) {
+    for (const d of activeDistricts(state)) {
+      if (this.districtEls.has(d.id)) continue;
+      const el = document.createElement('div');
+      el.className = `district-label${d.hamlet ? ' hamlet' : ''}`;
+      el.innerHTML = `<span class="name">${d.name}</span><span class="extra"></span>`;
+      this.container.appendChild(el);
+      this.districtEls.set(d.id, { el, extra: el.querySelector('.extra'), pos: labelPos(d.id) });
+    }
+    const owned = new Set(state.hamlets || []);
+    for (const plot of PLOTS) {
+      let el = this.saleEls.get(plot.id);
+      if (owned.has(plot.id)) {
+        if (el) {
+          el.remove();
+          this.saleEls.delete(plot.id);
+        }
+        continue;
+      }
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'sale-label';
+        this.container.appendChild(el);
+        this.saleEls.set(plot.id, el);
+      }
+      el.innerHTML = `<span>🏷️ ${DISTRICTS[plot.id].name}</span><span class="price">${price}</span>`;
+    }
+  }
+
+  /** Shows "fovšija 42" next to district names while the envy map is on (texts by district id). */
   setDistrictExtras(texts) {
-    this.districtEls.forEach((d, i) => {
-      d.extra.textContent = texts ? texts[i] : '';
+    for (const [id, d] of this.districtEls) {
+      d.extra.textContent = texts ? texts.get(id) || '' : '';
       d.el.classList.toggle('with-extra', !!texts);
-    });
+    }
   }
 
   project(worldPos) {
@@ -173,7 +231,11 @@ export class Labels {
   }
 
   update(dt, state, citizenLayer) {
-    for (const d of this.districtEls) this.place(d.el, d.pos);
+    for (const d of this.districtEls.values()) this.place(d.el, d.pos);
+    for (const [id, el] of this.saleEls) {
+      const c = districtCenter(id);
+      this.place(el, tileToWorld(c.x, c.y, this.tmp2).setY(1.1));
+    }
     this.updateWishMarkers(state, citizenLayer);
 
     // Occasionally a random citizen says what they think.
@@ -185,7 +247,7 @@ export class Labels {
       const pool = protesters.length ? protesters : state.citizens.map((c) => c.id);
       const c = state.citizens[pool[Math.floor(Math.random() * pool.length)]];
       this.showBubble(c, citizenLayer.figureById(c.id));
-      this.bubbleTimer = protesters.length ? 2.2 : CONFIG.citizens.bubbleEvery + CONFIG.citizens.bubbleDuration;
+      this.bubbleTimer = protesters.length ? 4 : CONFIG.citizens.bubbleEvery + CONFIG.citizens.bubbleDuration;
     }
     if (this.bubble) {
       this.bubble.remaining -= dt;

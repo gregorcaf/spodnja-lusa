@@ -61,4 +61,8 @@ export const WISHES = [
   { id: 'inn-2', build: 'inn', text: 'Še eno gostilno {loc}. Za konkurenco. Cene piva so nesprejemljive.' },
   { id: 'factory-1', build: 'factory', character: 'entrepreneur', text: 'Tovarno {loc}. Za delovna mesta! Moja hiša je itak na drugem koncu.' },
   { id: 'hall-1', build: 'hall', text: 'Večnamensko dvorano {loc}. Za namene.' },
+  { id: 'shop-1', build: 'shop', text: 'Trgovino {loc}. Za kruh, mleko in da izvem, kaj je novega.' },
+  { id: 'vineyard-1', build: 'vineyard', text: 'Vinograd {loc}. Za zdravje. Moje.' },
+  { id: 'police-1', build: 'police', character: 'inspector', text: 'Policijo {loc}. Nekdo mora zapisovati, kdo kje parkira. Do zdaj sem to delal{|a} jaz.' },
+  { id: 'cemetery-1', build: 'cemetery', character: 'grumbler', text: 'Pokopališče {loc}. Da bom imel{|a} kam iti, ko bom vsega sit{|a}.' },
 ];

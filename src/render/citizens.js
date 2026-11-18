@@ -3,10 +3,14 @@
 
 import * as THREE from 'three';
 import { CONFIG } from '../config.js';
-import { SIZE, idx, inBounds, isWalkable, districtOf } from '../game/map.js';
+import { SIZE, idx, inBounds, isWalkable, districtOf, activeDistricts } from '../game/map.js';
 import { moodOf } from '../game/stats.js';
 import { seasonOf } from '../game/seasons.js';
-import { createFigure } from './models.js';
+import { population, startPopulation } from '../game/population.js';
+
+// Clothes of the anonymous residents (they have no mood colour).
+const EXTRA_COLORS = ['#8a93a3', '#a38a7a', '#7a8fa3', '#9a8aa8', '#8aa39a', '#b0a27a'];
+import { createFigure, PAVEMENT_WIDTH } from './models.js';
 import { tileToWorld, worldToTile } from './coords.js';
 
 const MOOD_COLORS = {
@@ -26,6 +30,9 @@ function randomProtestSpot() {
   return Math.random() < 0.5 ? new THREE.Vector3(along, 0, across) : new THREE.Vector3(across, 0, along);
 }
 
+// Distance of the pavement's middle from the tile centre.
+const SIDEWALK = 0.5 - PAVEMENT_WIDTH / 2;
+
 const DIRS = [
   [1, 0],
   [-1, 0],
@@ -41,16 +48,21 @@ export class CitizenLayer {
     this.figures = [];
     this.time = 0;
 
-    const state = game.state;
-    for (const c of state.citizens) {
+    for (const c of game.state.citizens) this.addFigure(c);
+  }
+
+  /** A figure for a named citizen (also used when newcomers move into a hamlet). */
+  addFigure(c) {
+    {
       const fig = createFigure();
       fig.hit.userData.citizenId = c.id;
-      const start = this.randomRoadTile(c.home) || { x: 7, y: 7 };
+      const start = this.randomRoadTile(c.home) || { x: 15, y: 15 };
       const f = {
         id: c.id,
         ...fig,
         // Each citizen walks slightly off the tile centre, like on a sidewalk.
-        offset: new THREE.Vector2((Math.random() - 0.5) * 0.44, (Math.random() - 0.5) * 0.44),
+        lane: (Math.random() - 0.5) * 0.05, // a little left or right on the pavement
+        side: { x: Math.random() < 0.5 ? 1 : -1, z: Math.random() < 0.5 ? 1 : -1 }, // which pavement
         pos: new THREE.Vector3(),
         path: [],
         prevTile: null,
@@ -61,7 +73,7 @@ export class CitizenLayer {
         spot: null, // where to stand while partying / protesting
         protestSpot: randomProtestSpot(),
       };
-      this.tileCenter(start.x, start.y, f, f.pos);
+      this.sidePoint(start.x, start.y, f, f.pos);
       f.group.position.copy(f.pos);
       this.group.add(f.group);
       this.figures.push(f);
@@ -72,14 +84,120 @@ export class CitizenLayer {
     return this.figures.map((f) => f.hit);
   }
 
+  /**
+   * Anonymous residents: more people move in, more figures walk the roads.
+   * They just wander (no moods, not clickable) – the 25 named citizens stay the "voices".
+   */
+  syncExtras(state) {
+    const p = CONFIG.population;
+    const want = Math.max(0, Math.min(p.maxExtraWalkers, Math.floor((population(state) - startPopulation()) / p.extraWalkerEvery)));
+    this.extras ??= [];
+    while (this.extras.length > want) this.group.remove(this.extras.pop().group);
+    while (this.extras.length < want) {
+      const fig = createFigure();
+      fig.bodyMat.color.set(EXTRA_COLORS[this.extras.length % EXTRA_COLORS.length]);
+      fig.hit.visible = false;
+      const homes = activeDistricts(state).map((d) => d.id);
+      const home = homes[Math.floor(Math.random() * homes.length)];
+      const start = this.randomRoadTile(home) || { x: 7, y: 7 };
+      const f = {
+        ...fig,
+        citizen: { home },
+        lane: (Math.random() - 0.5) * 0.05, // a little left or right on the pavement
+        side: { x: Math.random() < 0.5 ? 1 : -1, z: Math.random() < 0.5 ? 1 : -1 }, // which pavement
+        pos: new THREE.Vector3(),
+        path: [],
+        prevTile: null,
+        mode: 'wander',
+        pause: Math.random() * 2,
+        phase: Math.random() * Math.PI * 2,
+        speedJitter: 0.8 + Math.random() * 0.4,
+      };
+      this.sidePoint(start.x, start.y, f, f.pos);
+      f.group.position.copy(f.pos);
+      this.group.add(f.group);
+      this.extras.push(f);
+    }
+  }
+
+  updateExtras(dt, state, speedMul = 1) {
+    // Population changes slowly; recounting it (road network included) every frame is wasted work.
+    this.extrasCheckIn = (this.extrasCheckIn ?? 0) - dt;
+    if (this.extrasCheckIn <= 0 || !this.extras) {
+      this.syncExtras(state);
+      this.extrasCheckIn = 0.5;
+    }
+    const weather = state.snow ? CONFIG.citizens.snowSpeedFactor : seasonOf(state.month) === 'winter' ? 0.75 : 1;
+    const speed = CONFIG.citizens.walkSpeed * weather * speedMul;
+    for (const f of this.extras) {
+      if (f.pause > 0) {
+        f.pause -= dt;
+      } else if (f.path.length) {
+        const target = f.path[0];
+        const dx = target.x - f.pos.x;
+        const dz = target.z - f.pos.z;
+        const dist = Math.hypot(dx, dz);
+        const step = speed * f.speedJitter * dt;
+        if (dist <= step) {
+          f.pos.set(target.x, 0, target.z);
+          f.path.shift();
+        } else {
+          f.pos.x += (dx / dist) * step;
+          f.pos.z += (dz / dist) * step;
+        }
+        if (dist > 0.001) f.group.rotation.y = Math.atan2(dx, dz);
+        f.inner.position.y = Math.abs(Math.sin(this.time * 10 * speed + f.phase)) * 0.025;
+      } else {
+        this.planWander(f, f.citizen);
+      }
+      f.group.position.copy(f.pos);
+    }
+  }
+
   figureById(id) {
     return this.figures[id];
   }
 
-  tileCenter(x, y, f, target = new THREE.Vector3()) {
+  /**
+   * Waypoints for one step from tile `from` to the neighbouring tile `to`.
+   * Everyone keeps to one side of the street on each axis (f.side = { x: ±1, z: ±1 }), so
+   * walking straight on follows the pavement and turning happens at a pavement corner.
+   * When the next tile has no pavement on the figure's side but does on the other side,
+   * they first cross the road – straight across, like at a zebra crossing. At junctions
+   * (no pavement on either side) they just walk on along the same line.
+   */
+  stepPoints(from, to, f) {
+    const alongX = to.x !== from.x;
+    const axis = alongX ? 'z' : 'x'; // the side that matters is across the walking direction
+    const s = f.side[axis];
+    const kerb = (sign) => {
+      const nx = to.x + (alongX ? 0 : sign);
+      const ny = to.y + (alongX ? sign : 0);
+      return inBounds(nx, ny) && !this.walkable(nx, ny);
+    };
+    const points = [];
+    if (!kerb(s) && kerb(-s)) {
+      f.side[axis] = -s;
+      points.push(this.sidePoint(from.x, from.y, f)); // cross over first
+    }
+    points.push(this.sidePoint(to.x, to.y, f));
+    return points;
+  }
+
+  /** Is the figure's corner of tile `t` on a pavement (something other than road beside it)? */
+  onPavement(t, f) {
+    const sx = f.side.x;
+    const sz = f.side.z;
+    const off = (x, y) => inBounds(x, y) && !this.walkable(x, y);
+    return off(t.x + sx, t.y) || off(t.x, t.y + sz) || off(t.x + sx, t.y + sz);
+  }
+
+  /** The figure's spot on the pavement of tile (x, y). */
+  sidePoint(x, y, f, target = new THREE.Vector3()) {
     tileToWorld(x, y, target);
-    target.x += f.offset.x;
-    target.z += f.offset.y;
+    const d = SIDEWALK + f.lane;
+    target.x += f.side.x * d;
+    target.z += f.side.z * d;
     return target;
   }
 
@@ -143,7 +261,7 @@ export class CitizenLayer {
     if (!this.walkable(here.x, here.y)) {
       // Off-road (road demolished, or just back from the party): walk to the nearest road.
       const t = this.nearestWalkable(f.pos.x, f.pos.z, c.home);
-      if (t) f.path.push(this.tileCenter(t.x, t.y, f));
+      if (t) f.path.push(this.sidePoint(t.x, t.y, f));
       else f.pause = 1;
       f.prevTile = null;
       return;
@@ -157,6 +275,10 @@ export class CitizenLayer {
       let w = districtOf(n.x, n.y) === c.home ? CONFIG.citizens.homeBias : 1 - CONFIG.citizens.homeBias;
       w = Math.max(w, 0.02);
       if (back) w *= 0.08; // avoid U-turns unless it's a dead end
+      // Stepping sideways into the other lane of the two-lane main road means crossing it in
+      // the middle of the block: rare – people mostly cross at junctions.
+      const sideways = !this.walkable(n.x + dx, n.y + dy) && this.walkable(n.x + dy, n.y + dx) && this.walkable(n.x - dy, n.y - dx);
+      if (sideways) w *= 0.05;
       if (f.fleeing && this.threat) {
         // Run from the bear: strongly prefer tiles that lead away from it.
         const p = tileToWorld(n.x, n.y);
@@ -178,9 +300,12 @@ export class CitizenLayer {
         break;
       }
     }
+    // Now and then people stop for a chat, so the streets look calm rather than busy –
+    // but only on the pavement, never in the middle of the road (checked before any crossing).
+    const canPause = this.onPavement(here, f);
     f.prevTile = here;
-    f.path.push(this.tileCenter(choice.x, choice.y, f));
-    if (Math.random() < 0.08) f.pause = 0.5 + Math.random() * 1.5;
+    f.path.push(...this.stepPoints(here, choice, f));
+    if (Math.random() < 0.2 && canPause) f.pause = 1 + Math.random() * 3;
   }
 
   /** What a figure should be doing right now, according to the game state. */
@@ -219,7 +344,7 @@ export class CitizenLayer {
     const here = worldToTile(f.pos.x, f.pos.z);
     const start = this.walkable(here.x, here.y) ? here : this.nearestWalkable(f.pos.x, f.pos.z);
     const route = start && goal ? this.findPath(start, goal) : null;
-    if (route) for (const t of route.slice(1)) f.path.push(this.tileCenter(t.x, t.y, f));
+    if (route) for (let i = 1; i < route.length; i++) f.path.push(...this.stepPoints(route[i - 1], route[i], f));
     f.path.push(spot.clone());
   }
 
@@ -245,13 +370,16 @@ export class CitizenLayer {
   }
 
   /** @param threat world position citizens run away from (the bear), or null */
-  update(dt, hoveredId = null, selectedId = null, threat = null) {
+  /** @param speedMul game speed (1×/2×/3×) – everyone walks faster when time runs faster */
+  update(dt, hoveredId = null, selectedId = null, threat = null, speedMul = 1) {
     this.threat = threat;
+    // Newcomers (hamlets) get their figures.
+    for (let i = this.figures.length; i < this.game.state.citizens.length; i++) this.addFigure(this.game.state.citizens[i]);
     this.time += dt;
     const state = this.game.state;
     // Deep snow from the lever slows people down a lot, ordinary winter a little.
     const weather = state.snow ? CONFIG.citizens.snowSpeedFactor : seasonOf(state.month) === 'winter' ? 0.75 : 1;
-    const speed = CONFIG.citizens.walkSpeed * weather;
+    const speed = CONFIG.citizens.walkSpeed * weather * speedMul;
 
     const rioting = state.unrest === 'riot';
     for (const f of this.figures) {
@@ -320,5 +448,6 @@ export class CitizenLayer {
       }
       f.group.position.copy(f.pos);
     }
+    this.updateExtras(dt, state, speedMul);
   }
 }

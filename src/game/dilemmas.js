@@ -1,9 +1,10 @@
 // Dilemma cards: picking a fitting card, filling its text and resolving a choice.
 
 import { DILEMMAS } from './content/dilemmas.js';
-import { DISTRICTS, SIZE, idx, districtOf } from './map.js';
+import { DISTRICTS, SIZE, idx, districtOf, activeDistricts } from './map.js';
 import { applyEffect, describeEffect } from './effects.js';
 import { pick, capitalize, fillTemplate } from './util.js';
+import { municipalityForms } from './municipality.js';
 import { seasonOf } from './seasons.js';
 
 /** Districts that contain at least one tile of `type`. */
@@ -20,8 +21,9 @@ function instantiate(card, state) {
   if (card.when && !card.when(state)) return null;
   if (card.season && seasonOf(state.month) !== card.season) return null;
   if (card.yearly != null) return null; // yearly events are drawn separately, see drawDilemma
+  if (card.special) return null; // special cards (KPK) only when the game says so
   let district = null;
-  if (card.district === 'random') district = Math.floor(Math.random() * DISTRICTS.length);
+  if (card.district === 'random') district = pick(activeDistricts(state)).id;
   else if (card.district) {
     const options = districtsWith(state, card.district);
     if (!options.length) return null;
@@ -46,6 +48,11 @@ export function dueYearlyEvent(state) {
 
 /** Picks the next card. Yearly events come first; other cards don't repeat until the pool is used up. */
 export function drawDilemma(state) {
+  // An investigation that is due comes before everything else.
+  if (state.kpkDue) {
+    state.kpkDue = false;
+    return { id: 'kpk', ctx: { district: null, citizenId: null } };
+  }
   const yearly = dueYearlyEvent(state);
   if (yearly) {
     state.yearlyDone[yearly.id] = state.year;
@@ -92,6 +99,7 @@ function fill(text, ctx, state) {
       district: d ? d.name : '',
       name: c ? c.name : '',
       first: c ? c.name.split(' ')[0] : '',
+      ...municipalityForms(state), // {obcina}, {v obcini} … with the municipality's name
     },
     c ? c.female : false,
   );

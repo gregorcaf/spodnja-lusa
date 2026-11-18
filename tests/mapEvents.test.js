@@ -2,6 +2,7 @@
 
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { idx } from '../src/game/map.js';
 import { newGame, restoreRandom, findTile, tileType } from './helpers.js';
 import { MAP_EVENT_TYPES } from '../src/game/mapEvents.js';
 
@@ -41,16 +42,43 @@ test('an ignored fire burns the house down; a clicked one saves it', () => {
   }
 });
 
-test('our own fire station puts fires out for free', () => {
+/** A new game with a finished fire station next to a road. */
+function withFireStation({ finished = true } = {}) {
   const game = newGame();
   const s = game.state;
   s.mapEventTimer = 1e9;
   const g = findTile(s, 'grass');
   game.act('firehouse', g.x, g.y);
+  if (finished) delete s.grid[idx(g.x, g.y)].build;
+  else s.grid[idx(g.x, g.y)].build.left = 99; // still building for the whole fire
+  return game;
+}
+
+test('our own fire station puts fires out for free', () => {
+  const game = withFireStation();
+  const s = game.state;
   const before = s.budget;
   game.startMapEvent('fire');
   game.clickMapEvent();
   assert.equal(s.budget, before);
+});
+
+test('with a fire station nobody has to click: the firefighters save the house on their own', () => {
+  const game = withFireStation();
+  const s = game.state;
+  const ev = game.startMapEvent('fire');
+  assert.match(game.describeMapEvent().announce, /gasilci že hitijo/);
+  const { x, y } = ev.tile;
+  runOut(game);
+  assert.equal(tileType(s, x, y), 'house');
+});
+
+test('a fire station still under scaffolding sends nobody', () => {
+  const game = withFireStation({ finished: false });
+  const ev = game.startMapEvent('fire');
+  const { x, y } = ev.tile;
+  runOut(game);
+  assert.equal(tileType(game.state, x, y), 'grass');
 });
 
 test('an ignored journalist only hurts when there is something to find', () => {

@@ -1,9 +1,10 @@
 // Elections every term: campaign, opponent, vote, recount gamble and game over.
 
 import { CONFIG } from '../config.js';
-import { DISTRICTS } from './map.js';
+import { DISTRICTS, activeDistricts } from './map.js';
 import { characterName } from './citizens.js';
 import { moodScore } from './stats.js';
+import { districtPopulation } from './population.js';
 import { clamp, pick } from './util.js';
 
 export function monthsToElection(state) {
@@ -37,7 +38,9 @@ export function opponentLabel(state) {
 export function runElection(state) {
   const thr = CONFIG.mood.supportThreshold;
   const low = CONFIG.mood.yellowAbove;
-  const districts = DISTRICTS.map((d) => ({ name: d.name, mayor: 0, opponent: 0 }));
+  // One column per existing district (quarters + bought hamlets), indexed by district id.
+  const districts = activeDistricts(state).map((d) => ({ id: d.id, name: d.name, mayor: 0, opponent: 0 }));
+  const byId = new Map(districts.map((d) => [d.id, d]));
   for (const c of state.citizens) {
     let forMayor;
     if (c.id === state.opponentId) forMayor = false;
@@ -50,7 +53,16 @@ export function runElection(state) {
       // Undecided voters lean towards the mayor the closer they are to supporting him.
       else forMayor = Math.random() < (s - low) / (thr - low);
     }
-    districts[c.home][forMayor ? 'mayor' : 'opponent'] += 1;
+    byId.get(c.home)[forMayor ? 'mayor' : 'opponent'] += 1;
+  }
+  // The 25 citizens are a sample: each district's result is scaled to how many people live there,
+  // so populous districts weigh more. The mayor needs more than half of all votes.
+  const pops = districtPopulation(state);
+  for (const d of districts) {
+    const reps = d.mayor + d.opponent;
+    d.reps = { mayor: d.mayor, opponent: d.opponent };
+    d.mayor = reps ? Math.round((pops[d.id] * d.reps.mayor) / reps) : 0;
+    d.opponent = pops[d.id] - d.mayor;
   }
   const mayor = districts.reduce((n, d) => n + d.mayor, 0);
   const opponent = districts.reduce((n, d) => n + d.opponent, 0);
@@ -58,7 +70,11 @@ export function runElection(state) {
     districts,
     mayor,
     opponent,
-    won: mayor >= CONFIG.elections.votesToWin,
+    reps: {
+      mayor: districts.reduce((n, d) => n + d.reps.mayor, 0),
+      opponent: districts.reduce((n, d) => n + d.reps.opponent, 0),
+    },
+    won: mayor > opponent,
     opponentName: opponentLabel(state),
     term: state.term,
   };
@@ -75,7 +91,17 @@ export function startNewTerm(state) {
   state.votesBought = 0;
   state.bribeTried = false;
   state.opponentWithdrawn = false;
+  state.riotMonths = 0;
   for (const c of state.citizens) c.boughtVote = false;
+}
+
+/** The council passes a vote of no confidence: an election right now, against the angriest citizen. */
+export function startEarlyElection(state) {
+  if (state.opponentId == null) {
+    const sorted = [...state.citizens].sort((a, b) => moodScore(a, state) - moodScore(b, state));
+    state.opponentId = sorted[0].id;
+  }
+  state.campaign = true;
 }
 
 /** Price of the next bought vote in this campaign. */
@@ -185,6 +211,7 @@ export function epilogue(state) {
   if (s.parties >= 3) lines.push('Vodi gasilski ansambel »Zadnja veselica«. Igrajo vsako soboto, tudi ko jih nihče ne povabi.');
   if (s.cousins >= 5) lines.push('Bratranec je postal direktor občinskega podjetja. Po naključju.');
   if (state.affair >= 60) lines.push('Komisija za preprečevanje korupcije ga je povabila na kavo. Kava traja že tretje leto.');
+  if ((s.investigations || 0) >= 2) lines.push(`KPK ga je preiskovala ${s.investigations}-krat. Preiskovalci mu za praznike pošiljajo voščilnice.`);
   if (s.burned >= 2) lines.push('Na mestu pogorišč stojijo spominske plošče. Na vseh piše »Saj ni bilo nič«.');
   if (lines.length < 2) {
     lines.push(

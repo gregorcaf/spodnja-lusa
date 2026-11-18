@@ -15,7 +15,19 @@ const MISSED_NEWS = [
   'Župana ni bilo na otvoritvi {whatGen} {loc}. Trak je prerezal bratranec. Z zobmi.',
   '{Loc} so odprli {what} brez župana. Na fotografiji je ostal prazen prostor v obliki župana.',
 ];
-const GENITIVE = { roundabout: 'krožišča', firehouse: 'gasilskega doma', hall: 'večnamenske dvorane', inn: 'gostilne', factory: 'tovarne' };
+const GENITIVE = {
+  roundabout: 'krožišča',
+  firehouse: 'gasilskega doma',
+  hall: 'večnamenske dvorane',
+  inn: 'gostilne',
+  factory: 'tovarne',
+  flats: 'bloka',
+  clinic: 'zdravstvenega doma',
+  police: 'policijske postaje',
+  shop: 'trgovine',
+  vineyard: 'vinograda',
+  cemetery: 'pokopališča',
+};
 
 /** Puts scaffolding on a freshly built tile (types without a construction time open at once). */
 export function startConstruction(tile) {
