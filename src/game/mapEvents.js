@@ -5,13 +5,23 @@
 // Positions are in tile coordinates; the renderer animates along `path` by `progress`.
 
 import { CONFIG } from '../config.js';
-import { DISTRICTS, SIZE, HALF, idx, districtOf, inBounds, isWalkable } from './map.js';
+import { DISTRICTS, SIZE, HALF, idx, districtOf, inBounds, isWalkable, activeDistricts, districtCenter } from './map.js';
+
+/** A random district that exists (the four quarters or a bought hamlet). */
+function randomDistrict(state) {
+  return pick(activeDistricts(state)).id;
+}
 import { applyEffect } from './effects.js';
 import { findFirehouses } from './levers.js';
 import { pick, capitalize, fillTemplate, formatEuro, randFloat } from './util.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
+
+/** A fire station that is built (not still under scaffolding) and reachable by road. */
+function hasFireBrigade(state) {
+  return findFirehouses(state).some((f) => state.grid[idx(f.x, f.y)].build?.phase !== 'construction');
+}
 
 function tilesOf(state, test) {
   const out = [];
@@ -70,9 +80,8 @@ export const MAP_EVENTS = {
     announce: 'Medved se sprehaja {loc}! Klikni nanj, preden najde čebelnjake.',
     spawn(state) {
       // From the forest outside the map, straight through the district centre, out the other side.
-      const district = Math.floor(Math.random() * 4);
-      const cx = district % 2 === 0 ? HALF / 2 - 0.5 : HALF + HALF / 2 - 0.5;
-      const cy = district < 2 ? HALF / 2 - 0.5 : HALF + HALF / 2 - 0.5;
+      const district = randomDistrict(state);
+      const { x: cx, y: cy } = districtCenter(district);
       const angle = Math.random() * Math.PI * 2;
       const r = 9;
       const path = [
@@ -129,7 +138,7 @@ export const MAP_EVENTS = {
     duration: 0.5,
     announce: 'Svatba {loc}! Svatje s harmonikarjem gredo po cesti. Klikni in jim nazdravi.',
     spawn(state) {
-      const district = Math.floor(Math.random() * 4);
+      const district = randomDistrict(state);
       const path = randomRoadWalk(state, district, 8);
       return path ? { district, path } : null;
     },
@@ -149,26 +158,35 @@ export const MAP_EVENTS = {
     icon: '🔥',
     name: 'Požar',
     duration: 0.4,
-    announce: 'Gori hiša {loc}! Klikni, da pokličeš gasilce.',
+    // With a working fire station the local firefighters are on their way at once: the house is
+    // saved either way, and the mayor can only show up for the photo. Without one, someone has
+    // to call the firefighters from Žlampe – or the house burns down.
+    durationFor: (state) => (hasFireBrigade(state) ? 0.25 : 0.4),
+    announce: (state) => (hasFireBrigade(state) ? 'Gori hiša {loc}! Domači gasilci že hitijo tja.' : 'Gori hiša {loc}! Klikni, da pokličeš gasilce.'),
     spawn(state) {
       const houses = tilesOf(state, (t) => t === 'house');
       if (!houses.length) return null;
       const tile = pick(houses);
       return { district: districtOf(tile.x, tile.y), tile, path: [tile] };
     },
-    action: (state) => (findFirehouses(state).length ? 'Pokliči naše gasilce (brezplačno)' : `Pokliči gasilce iz Žlamp (${formatEuro(3000)})`),
+    action: (state) => (hasFireBrigade(state) ? 'Pojdi h gasilcem (fotografija za glasilo)' : `Pokliči gasilce iz Žlamp (${formatEuro(3000)})`),
     click: (state) =>
-      findFirehouses(state).length
+      hasFireBrigade(state)
         ? {
-            effect: { happy: 4, propaganda: 2 },
-            news: 'Gasilci so požar {loc} pogasili v štirih minutah. Potem so imeli veselico.',
+            effect: { happy: 3, propaganda: 3 },
+            news: 'Župan je prihitel na požar {loc} in gasilcem podajal cev. Fotografija bo na naslovnici glasila.',
           }
         : {
             effect: { budget: -3000, envy: 4 },
             news: 'Gasilci iz Zgornjih Žlamp so pogasili požar {loc}. Račun: 3.000 € in veliko zbadanja.',
           },
-    ignoreHint: 'Sicer: hiša pogori, sreča v kraju −6',
+    ignoreHint: (state) =>
+      hasFireBrigade(state) ? 'Sicer: gasilci ga pogasijo sami, župan pa zamudi fotografijo.' : 'Sicer: hiša pogori, sreča v kraju −6',
     expire: (state, ev) => {
+      // Our own firefighters put it out even if nobody calls them.
+      if (hasFireBrigade(state)) {
+        return { effect: { happy: 2 }, news: 'Domači gasilci so požar {loc} pogasili sami. Župan je za to izvedel iz novic.' };
+      }
       const t = ev.tile;
       const tile = state.grid[idx(t.x, t.y)];
       const burned = tile.type === 'house';
@@ -187,7 +205,7 @@ export const MAP_EVENTS = {
     duration: 0.5,
     announce: 'Novinar z kamero se potika {loc}! Klikni, preden kaj najde.',
     spawn(state) {
-      const district = Math.floor(Math.random() * 4);
+      const district = randomDistrict(state);
       const path = randomRoadWalk(state, district, 6);
       return path ? { district, path } : null;
     },
@@ -224,7 +242,7 @@ export function spawnMapEvent(state, type = null) {
       path: spot.path,
       tile: spot.tile || null,
       progress: 0,
-      duration: def.duration * CONFIG.mapEvents.durationScale,
+      duration: (def.durationFor ? def.durationFor(state) : def.duration) * CONFIG.mapEvents.durationScale,
     };
     return state.mapEvent;
   }
@@ -263,9 +281,9 @@ export function describeMapEvent(state) {
   return {
     icon: def.icon,
     name: def.name,
-    announce: fillTemplate(def.announce, vars(ev.district)),
+    announce: fillTemplate(typeof def.announce === 'function' ? def.announce(state) : def.announce, vars(ev.district)),
     action: def.action(state),
-    ignoreHint: def.ignoreHint,
+    ignoreHint: typeof def.ignoreHint === 'function' ? def.ignoreHint(state) : def.ignoreHint,
     timeLeft: 1 - ev.progress,
   };
 }

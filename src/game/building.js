@@ -1,13 +1,16 @@
 // Construction and demolition: validation, effect forecast and execution.
 
 import { CONFIG } from '../config.js';
-import { DISTRICTS, districtOf, idx, inBounds } from './map.js';
-import { BUILD_ERRORS, NO_MONEY, BUILD_NEWS, DEMOLISH_NEWS, BUILDINGS, BUILDING_GENITIVE } from './texts.js';
+import { DISTRICTS, districtOf, idx, inBounds, isOwned } from './map.js';
+import { BUILD_ERRORS, NO_ROAD, NO_MONEY, BUILD_NEWS, DEMOLISH_NEWS, BUILDINGS, BUILDING_GENITIVE } from './texts.js';
 import { applyDistrictEffect } from './envy.js';
 import { startConstruction } from './construction.js';
+import { population, canBuildFactory } from './population.js';
+import { NEEDS_ROAD, hasRoadAccess } from './roads.js';
+import { canBuildClinic } from './services.js';
 import { pick, capitalize, fillTemplate, formatEuro, formatSigned } from './util.js';
 
-export const BUILD_TOOLS = ['road', 'house', 'roundabout', 'firehouse', 'hall', 'inn', 'factory'];
+export const BUILD_TOOLS = ['road', 'house', 'flats', 'roundabout', 'firehouse', 'hall', 'inn', 'factory', 'clinic', 'police', 'shop', 'vineyard', 'cemetery'];
 export const TOOLS = [...BUILD_TOOLS, 'demolish'];
 
 export function getTile(state, x, y) {
@@ -24,10 +27,29 @@ export function toolEffect(tool, tile) {
   return CONFIG.buildings[tool];
 }
 
+/**
+ * Whether a building can be built anywhere right now (before picking a spot).
+ * Returns null when it can, else { kind: 'locked' | 'money', reason, need? }.
+ */
+export function toolBlocked(state, tool) {
+  if (tool === 'factory' && !canBuildFactory(state)) {
+    const reason = BUILD_ERRORS.factoryPopulation.replace('{min}', CONFIG.population.factoryMin).replace('{now}', population(state));
+    return { kind: 'locked', reason, need: CONFIG.population.factoryMin };
+  }
+  if (tool === 'clinic' && !canBuildClinic(state)) {
+    const reason = BUILD_ERRORS.clinicPopulation.replace('{min}', CONFIG.services.clinicMin).replace('{now}', population(state));
+    return { kind: 'locked', reason, need: CONFIG.services.clinicMin };
+  }
+  if (state.budget < toolCost(tool)) return { kind: 'money', reason: pick(NO_MONEY) };
+  return null;
+}
+
 /** Checks whether `tool` can be used at (x, y). Returns { ok, reason }. */
 export function checkAction(state, tool, x, y) {
   const tile = getTile(state, x, y);
   if (!tile) return { ok: false, reason: '' };
+  if (districtOf(x, y) < 0) return { ok: false, reason: BUILD_ERRORS.outside };
+  if (!isOwned(state, x, y)) return { ok: false, reason: BUILD_ERRORS.notOwned, notOwned: true };
 
   if (tool === 'demolish') {
     if (tile.type === 'church') return { ok: false, reason: BUILD_ERRORS.demolishChurch };
@@ -41,6 +63,16 @@ export function checkAction(state, tool, x, y) {
     if (tile.type !== 'grass') return { ok: false, reason: BUILD_ERRORS.occupied };
   }
 
+  // A factory needs workers.
+  if (tool === 'factory' && !canBuildFactory(state)) {
+    const reason = BUILD_ERRORS.factoryPopulation.replace('{min}', CONFIG.population.factoryMin).replace('{now}', population(state));
+    return { ok: false, reason };
+  }
+  // A clinic needs patients (and a doctor willing to move here).
+  if (tool === 'clinic' && !canBuildClinic(state)) {
+    const reason = BUILD_ERRORS.clinicPopulation.replace('{min}', CONFIG.services.clinicMin).replace('{now}', population(state));
+    return { ok: false, reason };
+  }
   if (state.budget < toolCost(tool)) return { ok: false, reason: pick(NO_MONEY), noMoney: true };
   return { ok: true, reason: '' };
 }
@@ -53,7 +85,8 @@ export function forecast(state, tool, x, y) {
   const check = checkAction(state, tool, x, y);
   const tile = getTile(state, x, y);
   if (!tile) return { ok: false, text: '' };
-  const district = DISTRICTS[districtOf(x, y)];
+  // The four forest corners of the map belong to no district (and can't be bought).
+  const district = DISTRICTS[districtOf(x, y)] || { name: 'gozd izven občine', loc: 'v gozdu' };
 
   // Show the effect even when the only problem is money, so the player sees what they're missing.
   const showEffect = check.ok || check.noMoney;
@@ -65,6 +98,7 @@ export function forecast(state, tool, x, y) {
     if (envy) parts.push(`${formatSigned(envy)} fovšija drugod`);
     if (e.allHappy) parts.push(`${formatSigned(e.allHappy)} sreča vsem`);
     parts.push(formatEuro(-toolCost(tool)));
+    if (tool !== 'demolish' && NEEDS_ROAD.has(tool) && !hasRoadAccess(state, x, y)) parts.push(`⚠️ ${NO_ROAD[tool]}`);
     if (tool !== 'demolish' && e.income) parts.push(`${formatEuro(e.income, { sign: true })}/mes`);
     if (tool === 'demolish' && CONFIG.buildings[tile.type]?.income) {
       parts.push(`${formatEuro(-CONFIG.buildings[tile.type].income)}/mes`);

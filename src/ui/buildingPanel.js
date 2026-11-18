@@ -3,11 +3,12 @@
 
 import { CONFIG } from '../config.js';
 import { DISTRICTS, idx, districtOf } from '../game/map.js';
-import { BUILDINGS, TOOL_INFO } from '../game/texts.js';
+import { BUILDINGS, TOOL_INFO, NO_ROAD } from '../game/texts.js';
 import { upgradesFor, checkUpgrade } from '../game/upgrades.js';
 import { describeEffect } from '../game/effects.js';
 import { taxRate } from '../game/taxes.js';
 import { formatEuro } from '../game/util.js';
+import { NEEDS_ROAD, hasRoadAccess } from '../game/roads.js';
 import { escapeHtml } from './tooltip.js';
 
 const ICONS = { ...Object.fromEntries(Object.entries(TOOL_INFO).map(([k, v]) => [k, v.icon])), church: '⛪' };
@@ -26,15 +27,20 @@ export function createBuildingPanel(game, { onBuy, onRibbon }) {
     const b = CONFIG.buildings[tile.type];
 
     let status = '';
-    if (tile.build?.phase === 'construction') status = '<div class="bp-status">🏗️ V gradnji – še nekaj dni.</div>';
-    if (tile.build?.phase === 'opening') {
-      status = `<div class="bp-status ribbon">✂️ Čaka na otvoritev! <button class="bp-ribbon">Župan, prereži trak</button></div>`;
+    if (NEEDS_ROAD.has(tile.type) && !hasRoadAccess(s, x, y)) {
+      status += `<div class="bp-status ribbon">🚧 ${NO_ROAD[tile.type]}</div>`;
     }
+    if (tile.build?.phase === 'construction') status += '<div class="bp-status">🏗️ V gradnji</div>';
+    if (tile.build?.phase === 'opening') status += `<div class="bp-status ribbon"><button class="bp-ribbon">✂️ Prereži trak</button></div>`;
 
     const money = [];
-    if (tile.type === 'house') money.push(`davek ${formatEuro(taxRate(s))}/mes`);
-    if (b?.income) money.push(`prihodek ${formatEuro(b.income)}/mes`);
-    if (b?.upkeep) money.push(`vzdrževanje ${formatEuro(b.upkeep)}/mes`);
+    if (tile.type === 'house') money.push(`👥 ${CONFIG.population.perHousehold} · ${formatEuro(taxRate(s), { sign: true })}/mes`);
+    if (tile.type === 'flats') {
+      const n = CONFIG.population.flatsHouseholds;
+      money.push(`👥 ${n * CONFIG.population.perHousehold} · ${formatEuro(taxRate(s) * n, { sign: true })}/mes`);
+    }
+    if (b?.income) money.push(`${formatEuro(b.income, { sign: true })}/mes`);
+    if (b?.upkeep) money.push(`${formatEuro(-b.upkeep)}/mes`);
 
     const ctx = { district: districtOf(x, y) };
     const ups = upgradesFor(tile.type)
@@ -47,8 +53,7 @@ export function createBuildingPanel(game, { onBuy, onRibbon }) {
           ? '<span class="bp-done">✔ narejeno</span>'
           : `<button class="bp-buy" data-id="${u.id}" ${check.ok ? '' : `disabled title="${escapeHtml(check.reason)}"`}>Kupi · ${formatEuro(u.cost)}</button>`;
         return `<div class="bp-up${done ? ' done' : ''}">
-          <div class="bp-up-name">${escapeHtml(u.name)}</div>
-          <div class="bp-up-desc">${escapeHtml(u.desc)}</div>
+          <div class="bp-up-name" title="${escapeHtml(u.desc)}">${escapeHtml(u.name)}</div>
           <div class="bp-up-fx">${escapeHtml(effects.join(' · '))}</div>
           ${action}</div>`;
       })

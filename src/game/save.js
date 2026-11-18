@@ -2,6 +2,7 @@
 // Storage is passed in (localStorage in the browser, a fake in tests).
 
 import { createState } from './game.js';
+import { migrateGrid, CORE } from './map.js';
 
 export const SAVE_KEY = 'nasa-obcina-save';
 export const SAVE_VERSION = 1;
@@ -20,6 +21,12 @@ export function deserialize(text) {
     if (!data || data.version !== SAVE_VERSION || !data.state?.grid || !data.state?.citizens) return null;
     const defaults = createState();
     const state = { ...defaults, ...data.state };
+    // Saves from before the map got bigger: move everything into the middle of the new grid.
+    if (state.grid.length !== defaults.grid.length) {
+      state.grid = migrateGrid(state.grid);
+      if (state.party) state.party = { ...state.party, x: state.party.x + CORE, y: state.party.y + CORE };
+      state.mapEvent = null;
+    }
     state.stats = { ...defaults.stats, ...data.state.stats };
     state.leverMult = { ...defaults.leverMult, ...data.state.leverMult };
     return state;
@@ -56,5 +63,6 @@ export function clearSave(storage) {
 
 /** Short description of a save for the start screen, e.g. "maj 2028 · 1. mandat". */
 export function describeSave(state, monthNames) {
-  return `${monthNames[state.month]} ${state.year} · ${state.term}. mandat`;
+  const name = state.municipality ? `Občina ${state.municipality} · ` : '';
+  return `${name}${monthNames[state.month]} ${state.year} · ${state.term}. mandat`;
 }

@@ -10,6 +10,7 @@ import { tickWishes } from './wishes.js';
 import { applyMonthlyTax } from './taxes.js';
 import { tickMayorCooldowns } from './mayor.js';
 import { applyMonthlyUnrest, assignProtesters } from './unrest.js';
+import { applyMonthlyServices } from './services.js';
 import { pick } from './util.js';
 
 export function dateLabel(state) {
@@ -25,7 +26,9 @@ export function advanceMonth(state) {
 
   state.budget += income.total - expenses.total + special;
   const unrest = applyMonthlyUnrest(state);
-  if (unrest.level === 'riot' && unrest.damage) state.stats.burned += 1;
+  // Riot months in a row: after a few, the council loses patience (see Game.nextMonth).
+  state.riotMonths = state.unrest === 'riot' ? (state.riotMonths || 0) + 1 : 0;
+  if (unrest.level === 'riot' && unrest.damage?.type) state.stats.burned += 1;
   tickModifiers(state);
   // Delayed consequences of earlier dilemma choices.
   const events = runScheduled(state);
@@ -38,6 +41,8 @@ export function advanceMonth(state) {
     clampCitizen(c);
   }
   const taxNews = applyMonthlyTax(state);
+  // Clinic, shops, a missing cemetery and the September harvest (before the month changes).
+  const serviceNews = applyMonthlyServices(state);
   tickMayorCooldowns(state);
   state.propaganda = Math.max(0, state.propaganda - m.propagandaDecay);
   state.affair = Math.max(0, state.affair - m.affairDecay);
@@ -74,13 +79,14 @@ export function advanceMonth(state) {
       houses: income.houses,
       rate: income.rate,
       business: income.business,
+      harvest: income.harvest,
       total: income.total,
     },
     expenses: { base: expenses.base, upkeep: expenses.upkeep, total: expenses.total },
     special,
     balance: income.total - expenses.total + special - (unrest.damage ? unrest.damage.cost : 0),
     events,
-    wishNews: [...wishNews, ...taxNews],
+    wishNews: [...wishNews, ...taxNews, ...serviceNews],
     unrest: unrest.level,
     damage: unrest.damage,
     startBudget,

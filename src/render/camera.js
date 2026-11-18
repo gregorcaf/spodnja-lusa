@@ -1,22 +1,27 @@
-// Isometric orthographic camera: wheel zoom, right-drag pan, animated 90° rotation.
+// Isometric orthographic camera: wheel zoom, drag to pan (left or right button), animated 90° rotation.
 
 import * as THREE from 'three';
 
 const ELEVATION = Math.atan(1 / Math.SQRT2); // classic isometric angle (~35.26°)
 const DISTANCE = 40;
 const VIEW_HEIGHT = 16.5; // world units visible vertically at zoom 1
-const PAN_LIMIT = 11;
+const PAN_LIMIT = 18; // the map now reaches ±16 with the hamlets around it
+// A left press only becomes a pan after this many pixels, so ordinary clicks stay clicks
+// (the scene ignores a click that moved more than this, see scene.js).
+const DRAG_THRESHOLD = 6;
 
 export class CameraController {
   constructor(dom) {
     this.dom = dom;
     this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 200);
     this.target = new THREE.Vector3(0, 0, 0);
-    this.azimuth = Math.PI / 4;
+    // Looking from the north-west: the sun is behind the village, so shadows fall towards the viewer.
+    this.azimuth = (5 * Math.PI) / 4;
     this.goalAzimuth = this.azimuth;
     this.camera.zoom = 1;
     this.panning = false;
     this.lastPointer = null;
+    this.press = null; // { x, y, button } while a button is held on the map
 
     dom.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
     dom.addEventListener('pointerdown', (e) => this.onPointerDown(e));
@@ -42,18 +47,27 @@ export class CameraController {
   onWheel(e) {
     e.preventDefault();
     const z = this.camera.zoom * Math.exp(-e.deltaY * 0.0015);
-    this.camera.zoom = THREE.MathUtils.clamp(z, 0.55, 4);
+    this.camera.zoom = THREE.MathUtils.clamp(z, 0.35, 4);
     this.camera.updateProjectionMatrix();
   }
 
   onPointerDown(e) {
-    if (e.button !== 2) return;
-    this.panning = true;
+    if (e.button !== 0 && e.button !== 2) return;
+    this.press = { x: e.clientX, y: e.clientY, button: e.button };
     this.lastPointer = { x: e.clientX, y: e.clientY };
+    // The right button always pans; the left one only once it is dragged (see onPointerMove).
+    if (e.button === 2) this.startPan();
+  }
+
+  startPan() {
+    this.panning = true;
     this.dom.style.cursor = 'grabbing';
   }
 
   onPointerMove(e) {
+    if (this.press && !this.panning && Math.hypot(e.clientX - this.press.x, e.clientY - this.press.y) > DRAG_THRESHOLD) {
+      this.startPan();
+    }
     if (!this.panning) return;
     const dx = e.clientX - this.lastPointer.x;
     const dy = e.clientY - this.lastPointer.y;
@@ -70,7 +84,9 @@ export class CameraController {
   }
 
   onPointerUp(e) {
-    if (e.button !== 2 || !this.panning) return;
+    if (!this.press || e.button !== this.press.button) return;
+    this.press = null;
+    if (!this.panning) return;
     this.panning = false;
     this.dom.style.cursor = '';
   }

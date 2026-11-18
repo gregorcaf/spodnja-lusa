@@ -61,6 +61,7 @@ test('upgrades cost money once and change the monthly balance', () => {
   assert.equal(s.budget, before.budget - 4000);
   assert.equal(monthlyIncome(s).business, before.income + 300);
   assert.equal(game.buyUpgrade(p.x, p.y, 'linden').ok, false, 'only once');
+  CONFIG.population.factoryMin = 0;
   const f = build(game, 'factory');
   delete tileAt(s, f).build;
   const upkeep = monthlyExpenses(s).upkeep;
@@ -97,7 +98,7 @@ test('listening sometimes turns into a wish for that citizen', () => {
       assert.equal(res.wish.citizenId, 5);
     }
   }
-  assert.ok(wishes > 4 && wishes < 20, `${wishes}/20`);
+  assert.ok(wishes >= 2 && wishes <= 14, `${wishes}/20`); // about a third of the time
 });
 
 test('construction and upgrades are saved', () => {

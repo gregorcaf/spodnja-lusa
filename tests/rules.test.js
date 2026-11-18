@@ -69,6 +69,7 @@ test('one month: income, expenses and the slow drift of moods', () => {
 
 test('inns and factories earn money every month', () => {
   const game = newGame();
+  CONFIG.population.factoryMin = 0; // this test is about income, not about workers
   const s = game.state;
   const base = monthlyIncome(s).business;
   const a = findTile(s, 'grass');
@@ -76,4 +77,15 @@ test('inns and factories earn money every month', () => {
   const b = findTile(s, 'grass');
   game.act('inn', b.x, b.y);
   assert.equal(monthlyIncome(s).business - base, CONFIG.buildings.factory.income + CONFIG.buildings.inn.income);
+});
+
+test('the build menu knows which buildings are locked or too expensive', async () => {
+  const { toolBlocked } = await import('../src/game/building.js');
+  const game = newGame();
+  const s = game.state;
+  s.budget = 50000;
+  assert.equal(toolBlocked(s, 'house'), null);
+  assert.equal(toolBlocked(s, 'hall').kind, 'money');
+  assert.equal(toolBlocked(s, 'factory').kind, 'locked', 'too few residents for a factory');
+  assert.equal(toolBlocked(s, 'clinic').kind, 'locked');
 });

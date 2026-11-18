@@ -3,6 +3,7 @@
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { newGame, restoreRandom, FakeStorage } from './helpers.js';
+import { CONFIG } from '../src/config.js';
 import { Game } from '../src/game/game.js';
 import { saveGame, loadGame, clearSave, deserialize, SAVE_KEY } from '../src/game/save.js';
 import { seasonOf } from '../src/game/seasons.js';
@@ -72,10 +73,17 @@ test('seasonal wishes only appear in their season', () => {
   }
 });
 
-test('snow in winter brings no secret money', () => {
+test('the snow lever is not available in winter', () => {
   const game = newGame();
   const s = game.state;
-  s.month = 0;
-  game.useLever('snow');
-  assert.equal(s.secret, 0);
+  for (const month of [11, 0, 1]) {
+    s.month = month;
+    const budget = s.budget;
+    assert.equal(game.useLever('snow').ok, false, `month ${month}`);
+    assert.equal(s.snow, false);
+    assert.equal(s.budget, budget);
+  }
+  s.month = 4; // May: a proper surprise
+  assert.equal(game.useLever('snow').ok, true);
+  assert.equal(s.secret, CONFIG.levers.snow.secret);
 });

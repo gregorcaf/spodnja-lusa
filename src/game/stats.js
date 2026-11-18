@@ -1,9 +1,12 @@
 // Derived values: mood, support, averages, monthly balance.
 
 import { CONFIG } from '../config.js';
-import { DISTRICTS } from './map.js';
+import { activeDistricts, SIZE, idx } from './map.js';
+import { roadNetwork, hasRoadAccess } from './roads.js';
 import { taxRate } from './taxes.js';
 import { upgradeMonthly } from './upgrades.js';
+import { households, population } from './population.js';
+import { harvestIncome } from './services.js';
 
 /** Mood score used for both the figure colour and mayor support. */
 export function moodScore(c, state) {
@@ -20,6 +23,16 @@ export function moodOf(c, state) {
   return 'unhappy';
 }
 
+/** Share (0..1) of the 25 named citizens on the mayor's side – they are the municipality's sample. */
+export function supportShare(state) {
+  return supportCount(state) / state.citizens.length;
+}
+
+/** Estimated supporters among all residents (the sample scaled up to the population). */
+export function supportPeople(state) {
+  return Math.round(supportShare(state) * population(state));
+}
+
 export function supportCount(state) {
   return state.citizens.filter((c) => moodScore(c, state) > CONFIG.mood.supportThreshold).length;
 }
@@ -33,8 +46,9 @@ export function averages(state) {
   };
 }
 
+/** Mood per district – only districts that exist (quarters + bought hamlets). */
 export function districtStats(state) {
-  return DISTRICTS.map((d) => {
+  return activeDistricts(state).map((d) => {
     const people = state.citizens.filter((c) => c.home === d.id);
     return {
       district: d,
@@ -50,7 +64,7 @@ export function countTiles(state, type) {
 }
 
 export function monthlyIncome(state) {
-  const houses = countTiles(state, 'house');
+  const houses = households(state);
   const rate = taxRate(state);
   const fullTaxes = rate * houses;
   // During protests and riots part of the citizens refuse to pay (tax strike).
@@ -58,7 +72,14 @@ export function monthlyIncome(state) {
   // Inns and factories earn a fixed amount every month.
   // Inns and factories earn a fixed amount every month, some upgrades a bit more.
   let business = upgradeMonthly(state).income;
-  for (const t of state.grid) business += CONFIG.buildings[t.type]?.income || 0;
+  // … but only when customers and workers can get there (road access).
+  const network = roadNetwork(state);
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      const income = CONFIG.buildings[state.grid[idx(x, y)].type]?.income;
+      if (income && hasRoadAccess(state, x, y, network)) business += income;
+    }
+  }
   return {
     base: CONFIG.economy.baseIncome,
     taxes: fullTaxes - strike,
@@ -66,8 +87,9 @@ export function monthlyIncome(state) {
     houses,
     rate,
     business,
+    harvest: harvestIncome(state), // vineyards, end of September only
     get total() {
-      return this.base + this.taxes + this.business;
+      return this.base + this.taxes + this.business + this.harvest;
     },
   };
 }

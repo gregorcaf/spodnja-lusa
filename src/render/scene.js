@@ -11,11 +11,16 @@ import { Effects } from './effects.js';
 import { Labels } from './labels.js';
 import { MapEventLayer } from './mapEvents.js';
 import { MayorActor } from './mayor.js';
+import { VehicleLayer } from './vehicles.js';
+import { KrpanLayer } from './krpan.js';
 import { tileToWorld } from './coords.js';
 import { worldToTile } from './coords.js';
 import { inBounds } from '../game/map.js';
 import { districtStats } from '../game/stats.js';
 import { seasonOf } from '../game/seasons.js';
+import { hamletPrice } from '../game/hamlets.js';
+import { disconnectedBuildings } from '../game/roads.js';
+import { formatEuro } from '../game/util.js';
 
 export class MapView {
   constructor(container, game) {
@@ -43,6 +48,8 @@ export class MapView {
     this.effects = new Effects(this.scene);
     this.mapEvents = new MapEventLayer(this.scene);
     this.mayor = new MayorActor(this.scene, this.citizens);
+    this.vehicles = new VehicleLayer(this.scene, game, this.effects);
+    this.krpan = new KrpanLayer(this.scene);
     // Season and weather (a loaded game may also already be snowing or partying).
     this.applyWeather();
     if (state.party) this.effects.startParty(state.party);
@@ -51,6 +58,8 @@ export class MapView {
     labelLayer.className = 'label-layer';
     container.appendChild(labelLayer);
     this.labels = new Labels(labelLayer, this.camera);
+    this.labels.syncDistricts(state, formatEuro(hamletPrice(state)));
+    this.noRoad = disconnectedBuildings(state);
 
     this.raycaster = new THREE.Raycaster();
     this.groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -107,6 +116,7 @@ export class MapView {
         tile: this.hover.tile,
         citizenId: this.hover.citizenId,
         mapEvent: this.hover.mapEvent,
+        krpan: this.hover.krpan,
         point: this.hoverPoint,
         clientX: e.clientX,
         clientY: e.clientY,
@@ -116,13 +126,24 @@ export class MapView {
 
   bindGame() {
     const g = this.game;
-    g.on('tile', ({ x, y }) => this.world.updateTile(x, y));
+    g.on('tile', ({ x, y }) => {
+      this.world.updateAround(x, y);
+      this.noRoad = disconnectedBuildings(this.game.state); // roads may have appeared or vanished
+    });
     g.on('snow', () => this.applyWeather());
     g.on('month', () => this.applyWeather());
     // Citizens follow the game state on their own (party, protest); only effects need events.
     g.on('party-start', (site) => this.effects.startParty(site));
     g.on('party-end', () => this.effects.endParty());
-    g.on('state', () => this.refreshOverlay());
+    g.on('state', () => {
+      this.refreshOverlay();
+      this.labels.syncDistricts(this.game.state, formatEuro(hamletPrice(this.game.state)));
+    });
+    // A bought plot: the forest goes, a new district with its own colours and label appears.
+    g.on('hamlet', () => {
+      this.world.refreshPlots();
+      this.applyWeather();
+    });
   }
 
   applyWeather() {
@@ -140,6 +161,12 @@ export class MapView {
   /** World positions the mayor can walk to. */
   tileWorld(x, y) {
     return tileToWorld(x, y);
+  }
+
+  /** Where the rare visitor is right now (null when he isn't around). */
+  krpanWorld() {
+    const p = this.krpan.position;
+    return p ? new THREE.Vector3(p.x, 0, p.z) : null;
   }
 
   citizenWorld(id) {
@@ -177,7 +204,7 @@ export class MapView {
     }
     this.overlay.update(this.game.state);
     const stats = districtStats(this.game.state);
-    this.labels.setDistrictExtras(stats.map((s) => `fovšija ${Math.round(s.envy)}`));
+    this.labels.setDistrictExtras(new Map(stats.map((s) => [s.district.id, `fovšija ${Math.round(s.envy)}`])));
   }
 
   /** Raycasts the pointer against citizens first, then the ground. */
@@ -188,8 +215,9 @@ export class MapView {
     const ndc = new THREE.Vector2((this.pointer.x / w) * 2 - 1, -(this.pointer.y / h) * 2 + 1);
     this.raycaster.setFromCamera(ndc, this.camera);
 
-    // Live events win over citizens: they're urgent and short.
-    const eventHit = this.raycaster.intersectObjects(this.mapEvents.hitboxes, false).length > 0;
+    // Live events win over citizens: they're urgent and short. So does the rare visitor.
+    const krpanHit = this.raycaster.intersectObjects(this.krpan.hitboxes, false).length > 0;
+    const eventHit = krpanHit || this.raycaster.intersectObjects(this.mapEvents.hitboxes, false).length > 0;
     const mayorHit = !eventHit && this.raycaster.intersectObjects(this.mayor.hitboxes, false).length > 0;
     const hits = eventHit || mayorHit ? [] : this.raycaster.intersectObjects(this.citizens.hitboxes, false);
     const citizenId = hits.length ? hits[0].object.userData.citizenId : null;
@@ -202,14 +230,14 @@ export class MapView {
       const t = worldToTile(p.x, p.z);
       if (inBounds(t.x, t.y)) tile = t;
     }
-    this.setHover(tile, citizenId, eventHit, mayorHit);
+    this.setHover(tile, citizenId, eventHit && !krpanHit, mayorHit, krpanHit);
   }
 
-  setHover(tile, citizenId, mapEvent = false, mayor = false) {
+  setHover(tile, citizenId, mapEvent = false, mayor = false, krpan = false) {
     const prev = this.hover;
     const sameTile = (prev.tile && tile && prev.tile.x === tile.x && prev.tile.y === tile.y) || (!prev.tile && !tile);
-    const changed = !sameTile || prev.citizenId !== citizenId || prev.mapEvent !== mapEvent || prev.mayor !== mayor;
-    this.hover = { tile, citizenId, mapEvent, mayor };
+    const changed = !sameTile || prev.citizenId !== citizenId || prev.mapEvent !== mapEvent || prev.mayor !== mayor || prev.krpan !== krpan;
+    this.hover = { tile, citizenId, mapEvent, mayor, krpan };
     if (changed || this.pointerMoved) {
       this.pointerMoved = false;
       this.onHover({
@@ -217,6 +245,7 @@ export class MapView {
         citizenId,
         mapEvent,
         mayor,
+        krpan,
         clientX: this.pointer?.clientX ?? 0,
         clientY: this.pointer?.clientY ?? 0,
       });
@@ -233,13 +262,16 @@ export class MapView {
     if (this.pointer && !this.controls.panning) this.pick();
     const state = this.game.state;
     this.mapEvents.update(worldDt, state);
-    this.citizens.update(worldDt, this.hover.citizenId, this.selectedId, this.mapEvents.threat);
+    this.citizens.update(worldDt, this.hover.citizenId, this.selectedId, this.mapEvents.threat, Math.max(1, state.speed));
     // The mayor hurries along with the game speed, so events stay reachable at 2× and 3×.
     this.mayor.update(worldDt, Math.max(1, state.speed));
+    this.vehicles.update(worldDt, Math.max(1, state.speed));
+    this.krpan.update(worldDt, state);
     this.effects.update(worldDt, this.time, this.game.state.party ? this.citizens.dancers() : [], this.game.state);
     this.labels.update(worldDt, this.game.state, this.citizens);
     this.labels.updateEventMarker(state.mapEvent ? this.game.describeMapEvent() : null, this.mapEvents.anchor);
     this.labels.updateRibbonMarkers(this.game.pendingRibbons());
+    this.labels.updateNoRoadMarkers(this.noRoad);
     this.labels.updateEmotes(worldDt);
     this.renderer.render(this.scene, this.camera);
   }

@@ -4,6 +4,7 @@
 import { UPGRADES } from './content/upgrades.js';
 import { DISTRICTS, SIZE, idx, districtOf } from './map.js';
 import { applyEffect } from './effects.js';
+import { roadNetwork, isConnected } from './roads.js';
 
 export function upgradesFor(type) {
   return UPGRADES[type] || [];
@@ -37,12 +38,14 @@ export function buyUpgrade(state, x, y, id) {
 export function upgradeMonthly(state) {
   let income = 0;
   let upkeep = 0;
+  const network = roadNetwork(state);
   for (let y = 0; y < SIZE; y++) {
     for (let x = 0; x < SIZE; x++) {
       const tile = state.grid[idx(x, y)];
       for (const id of tile.upgrades || []) {
         const m = upgradesFor(tile.type).find((u) => u.id === id)?.monthly || 0;
-        if (m > 0) income += m;
+        // Upkeep is always paid; extra income only flows with road access.
+        if (m > 0) income += isConnected(state, x, y, network) ? m : 0;
         else upkeep -= m;
       }
     }

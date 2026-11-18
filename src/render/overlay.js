@@ -1,8 +1,9 @@
 // Envy map: tints each district by its citizens' average envy (green → red).
 
 import * as THREE from 'three';
-import { HALF } from '../game/map.js';
+import { CORE_SIZE, PLOT_SIZE, districtCenter } from '../game/map.js';
 import { districtStats } from '../game/stats.js';
+import { tileToWorld } from './coords.js';
 
 const GREEN = new THREE.Color('#2ecc40');
 const YELLOW = new THREE.Color('#ffd23f');
@@ -19,16 +20,7 @@ export class EnvyOverlay {
     this.group = new THREE.Group();
     this.group.visible = false;
     scene.add(this.group);
-    this.planes = [];
-    for (let d = 0; d < 4; d++) {
-      const mat = new THREE.MeshBasicMaterial({ color: GREEN, transparent: true, opacity: 0.42, depthWrite: false });
-      const plane = new THREE.Mesh(new THREE.PlaneGeometry(HALF - 0.08, HALF - 0.08), mat);
-      plane.rotation.x = -Math.PI / 2;
-      plane.position.set((d % 2 === 0 ? -1 : 1) * (HALF / 2), 0.09, (d < 2 ? -1 : 1) * (HALF / 2));
-      plane.renderOrder = 5;
-      this.group.add(plane);
-      this.planes.push(plane);
-    }
+    this.planes = new Map(); // district id -> plane (created when the district exists)
   }
 
   get visible() {
@@ -39,7 +31,23 @@ export class EnvyOverlay {
     this.group.visible = v;
   }
 
+  plane(id) {
+    if (!this.planes.has(id)) {
+      // Quarters are half the core wide, hamlets one plot.
+      const size = (id < 4 ? CORE_SIZE / 2 : PLOT_SIZE) - 0.08;
+      const mat = new THREE.MeshBasicMaterial({ color: GREEN, transparent: true, opacity: 0.42, depthWrite: false });
+      const p = new THREE.Mesh(new THREE.PlaneGeometry(size, size), mat);
+      p.rotation.x = -Math.PI / 2;
+      const c = districtCenter(id);
+      tileToWorld(c.x, c.y, p.position).y = 0.09;
+      p.renderOrder = 5;
+      this.group.add(p);
+      this.planes.set(id, p);
+    }
+    return this.planes.get(id);
+  }
+
   update(state) {
-    districtStats(state).forEach((s, d) => envyColor(s.envy, this.planes[d].material.color));
+    for (const s of districtStats(state)) envyColor(s.envy, this.plane(s.district.id).material.color);
   }
 }

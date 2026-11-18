@@ -4,7 +4,8 @@
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { newGame, restoreRandom } from './helpers.js';
-import { districtOf } from '../src/game/map.js';
+import { districtOf, SIZE, idx, isOwned } from '../src/game/map.js';
+import { hasRoadAccess } from '../src/game/roads.js';
 
 afterEach(restoreRandom);
 
@@ -24,7 +25,11 @@ function playTerm(seed, active) {
     for (const w of [...s.wishes]) if (w.cost != null && s.budget > 20000) game.payWish(w.uid);
     const d = s.monthIndex % 4;
     const free = [];
-    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) if (districtOf(x, y) === d && s.grid[y * 16 + x].type === 'grass') free.push([x, y]);
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        if (districtOf(x, y) === d && isOwned(s, x, y) && s.grid[idx(x, y)].type === 'grass' && hasRoadAccess(s, x, y)) free.push([x, y]);
+      }
+    }
     if (free.length && s.monthIndex % 3 === 0) game.act(s.monthIndex % 9 === 0 ? 'inn' : 'house', ...free[0]);
     if (s.monthIndex === 3 && free.length) game.act('firehouse', ...free[free.length - 1]);
     if (s.monthIndex % 4 === 0) game.useLever('neighbor');

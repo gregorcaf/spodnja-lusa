@@ -67,7 +67,7 @@ test('bought votes count even when everyone is unhappy', () => {
   }
   s.nextElectionAt = s.monthIndex + 1;
   game.nextMonth();
-  assert.equal(s.election.mayor, 4);
+  assert.equal(s.election.reps.mayor, 4, 'four bought citizens in the sample');
   assert.equal(s.election.won, false);
 });
 

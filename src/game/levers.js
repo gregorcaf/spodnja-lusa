@@ -2,18 +2,22 @@
 
 import { CONFIG } from '../config.js';
 import { SIZE, idx } from './map.js';
+import { roadNetwork, hasRoadAccess } from './roads.js';
 import { LEVER_TEXTS, LEVER_ERRORS, NO_MONEY } from './texts.js';
 import { clampCitizen } from './citizens.js';
 import { clamp, randInt, pick, fillTemplate, formatEuro } from './util.js';
 import { seasonOf } from './seasons.js';
+import { partyWineBonus } from './services.js';
 
 export const LEVER_IDS = ['cousin', 'praise', 'neighbor', 'snow', 'party', 'media', 'minister'];
 
-export function findFirehouses(state) {
+/** Fire stations that work, i.e. firefighters can drive out (road access). `all` also returns unreachable ones. */
+export function findFirehouses(state, { all = false } = {}) {
+  const network = roadNetwork(state);
   const out = [];
   for (let y = 0; y < SIZE; y++) {
     for (let x = 0; x < SIZE; x++) {
-      if (state.grid[idx(x, y)].type === 'firehouse') out.push({ x, y });
+      if (state.grid[idx(x, y)].type === 'firehouse' && (all || hasRoadAccess(state, x, y, network))) out.push({ x, y });
     }
   }
   return out;
@@ -28,9 +32,16 @@ export function checkLever(state, id) {
     return { ok: false, reason: LEVER_ERRORS.ministerPending };
   }
   if (id === 'snow' && state.snow) return { ok: false, reason: LEVER_ERRORS.snowActive };
+  // "Snow in the middle of May" only works when snow is a surprise.
+  if (id === 'snow' && seasonOf(state.month) === 'winter') return { ok: false, reason: LEVER_ERRORS.snowWinter };
   if (id === 'party') {
     if (state.party) return { ok: false, reason: LEVER_ERRORS.partyActive };
-    if (!findFirehouses(state).length) return { ok: false, reason: LEVER_ERRORS.noFirehouse };
+    // Nobody dances while the village is out on the street.
+    if (state.unrest !== 'calm') return { ok: false, reason: LEVER_ERRORS.partyUnrest };
+    if (!findFirehouses(state).length) {
+      const unreachable = findFirehouses(state, { all: true }).length > 0;
+      return { ok: false, reason: unreachable ? LEVER_ERRORS.firehouseNoRoad : LEVER_ERRORS.noFirehouse };
+    }
   }
   if (LEVER_TEXTS[id].fromSecret) {
     if (state.secret < cfg.cost) return { ok: false, reason: LEVER_ERRORS.noSecret };
@@ -99,23 +110,19 @@ export function useLever(state, id) {
 
     case 'snow': {
       state.snow = true;
-      // Snow in winter surprises nobody: no money for the winter service, no media distraction.
-      const winter = seasonOf(state.month) === 'winter';
-      if (!winter) {
-        state.secret += cfg.secret;
-        state.affair = clamp(state.affair + cfg.affair);
-      }
+      state.secret += cfg.secret;
+      state.affair = clamp(state.affair + cfg.affair);
       for (const c of state.citizens) {
-        c.happy += winter ? Math.round(cfg.happiness / 2) : cfg.happiness;
+        c.happy += cfg.happiness;
         clampCitizen(c);
       }
-      if (winter) return { ok: true, toast: txt.winterToast, news: txt.winterNews };
       return { ok: true, toast: txt.toast, news: pick(txt.news) };
     }
 
     case 'party': {
       const site = pick(findFirehouses(state));
-      const m = state.leverMult.party;
+      // Local wine makes the party work better (but doesn't slow its wear-off).
+      const m = state.leverMult.party * partyWineBonus(state);
       state.leverMult.party *= cfg.decay;
       state.party = { x: site.x, y: site.y, remaining: cfg.duration };
       state.stats.parties += 1;

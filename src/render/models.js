@@ -72,7 +72,7 @@ const ROOFS = ['#b5523b', '#8f3b2b', '#a0603a', '#6e4b3b'].map((c) => material(c
 
 const unitBox = new THREE.BoxGeometry(1, 1, 1);
 
-function box(w, h, d, mat, x = 0, y = 0, z = 0) {
+export function box(w, h, d, mat, x = 0, y = 0, z = 0) {
   const mesh = new THREE.Mesh(unitBox, mat);
   mesh.scale.set(w, h, d);
   mesh.position.set(x, y + h / 2, z);
@@ -80,7 +80,7 @@ function box(w, h, d, mat, x = 0, y = 0, z = 0) {
 }
 
 /** Moves an object in world-aligned x/z (unlike translateX, ignores its own rotation). */
-function at(obj, x, z) {
+export function at(obj, x, z) {
   obj.position.x += x;
   obj.position.z += z;
   return obj;
@@ -109,19 +109,19 @@ function gableGeometry(w, h, len) {
   return gableCache.get(key);
 }
 
-function gable(w, h, len, mat, y) {
+export function gable(w, h, len, mat, y) {
   const mesh = new THREE.Mesh(gableGeometry(w, h, len), mat);
   mesh.position.y = y;
   return shadow(mesh);
 }
 
-function cylinder(rTop, rBottom, h, mat, segments = 12, y = 0) {
+export function cylinder(rTop, rBottom, h, mat, segments = 12, y = 0) {
   const mesh = new THREE.Mesh(new THREE.CylinderGeometry(rTop, rBottom, h, segments), mat);
   mesh.position.y = y + h / 2;
   return shadow(mesh);
 }
 
-function cone(r, h, mat, segments = 4, y = 0) {
+export function cone(r, h, mat, segments = 4, y = 0) {
   const mesh = new THREE.Mesh(new THREE.ConeGeometry(r, h, segments), mat);
   mesh.position.y = y + h / 2;
   if (segments === 4) mesh.rotation.y = Math.PI / 4;
@@ -136,6 +136,31 @@ function road() {
   const base = box(1, 0.04, 1, M.road);
   base.castShadow = false;
   g.add(base);
+  return g;
+}
+
+const PAVEMENT = material('#c9c4b8', '#eef1f4');
+export const PAVEMENT_WIDTH = 0.22;
+
+/**
+ * Pavement strips along the edges of a road tile that border something other than road.
+ * edges: { n, s, w, e } booleans; corners: inner corners [{ x: ±1, z: ±1 }] where two roads meet.
+ */
+export function createPavement(edges, corners) {
+  const g = new THREE.Group();
+  const w = PAVEMENT_WIDTH;
+  const h = 0.06;
+  const off = 0.5 - w / 2;
+  const strip = (sx, sz, x, z) => {
+    const m = box(sx, h, sz, PAVEMENT, x, 0, z);
+    m.castShadow = false;
+    g.add(m);
+  };
+  if (edges.n) strip(1, w, 0, -off);
+  if (edges.s) strip(1, w, 0, off);
+  if (edges.w) strip(w, 1, -off, 0);
+  if (edges.e) strip(w, 1, off, 0);
+  for (const c of corners) strip(w, w, c.x * off, c.z * off);
   return g;
 }
 
@@ -171,8 +196,9 @@ function church() {
 
 function roundabout() {
   const g = road();
-  g.add(cylinder(0.33, 0.33, 0.06, M.curb, 20));
-  g.add(cylinder(0.29, 0.29, 0.09, M.island, 20));
+  // A compact island, so cars fit between it and the pavement.
+  g.add(cylinder(0.26, 0.26, 0.06, M.curb, 20));
+  g.add(cylinder(0.23, 0.23, 0.09, M.island, 20));
   g.add(box(0.12, 0.12, 0.12, M.pedestal, 0, 0.09, 0));
   // The statue: a proud, slightly mayor-like figure with a raised arm.
   const statue = new THREE.Group();
@@ -264,7 +290,153 @@ function factory() {
   return g;
 }
 
-const BUILDERS = { road, house, church, roundabout, firehouse, hall, inn, factory };
+const FLATS_WALL = material('#d9d3c4');
+const FLATS_ROOF = material('#6d7178', SNOW);
+const BALCONY = material('#b8b2a2');
+
+/** Block of flats: five storeys, a grid of windows, balconies and an entrance. */
+function flats(variant) {
+  const g = new THREE.Group();
+  const w = 0.82;
+  const d = 0.6;
+  const h = 1.15;
+  g.add(box(w, h, d, FLATS_WALL));
+  g.add(box(w + 0.04, 0.05, d + 0.04, FLATS_ROOF, 0, h, 0));
+  for (let floor = 0; floor < 5; floor++) {
+    const y = 0.12 + floor * 0.2;
+    for (let col = 0; col < 4; col++) {
+      const x = -0.3 + col * 0.2;
+      g.add(box(0.1, 0.09, 0.02, M.window, x, y, d / 2 + 0.005));
+      if (floor > 0 && col % 2 === 0) g.add(box(0.16, 0.025, 0.07, BALCONY, x + 0.1, y - 0.03, d / 2 + 0.035));
+    }
+  }
+  g.add(box(0.14, 0.12, 0.02, M.door, 0, 0, d / 2 + 0.006));
+  g.rotation.y = (variant % 2) * Math.PI; // facing the street one way or the other
+  return g;
+}
+
+// --- Public buildings --------------------------------------------------------
+
+const PUB = {
+  clinicWall: material('#f4f6f5'),
+  clinicRoof: material('#9aa7a3', SNOW),
+  cross: material('#d6322b', null, { emissive: '#3a0705' }),
+  policeWall: material('#dfe5ec'),
+  policeBlue: material('#2c5aa0'),
+  policeRoof: material('#4b5560', SNOW),
+  siren: new THREE.MeshBasicMaterial({ color: '#3d8bff' }),
+  shopWall: material('#f1e4c8'),
+  awningRed: material('#d4453a'),
+  awningWhite: material('#fbf7ee'),
+  crate: material('#b9874f'),
+  apple: material('#cf3b2f'),
+  vine: material('#4f8f3a', '#e7edf0', {}, { autumn: '#c0782f', spring: '#79b94e' }),
+  grape: material('#6b2f6b'),
+  post: material('#8b6a45'),
+  soil: material('#8a6b4a', '#e8edf0', {}, { summer: '#8f6e48' }),
+  stone: material('#b9b6ae', '#eef1f3'),
+  grave: material('#8f8d88'),
+  cypress: material('#2f5a35', '#e6ecef'),
+  candle: material('#e0412f', null, { emissive: '#6a1208' }),
+  gravel: material('#cfc8b8', '#eef1f3'),
+};
+
+/** Zdravstveni dom: a white two-storey block with a red cross and a canopy over the entrance. */
+function clinic() {
+  const g = new THREE.Group();
+  g.add(box(0.84, 0.56, 0.6, PUB.clinicWall, 0, 0, -0.04));
+  g.add(box(0.88, 0.05, 0.64, PUB.clinicRoof, 0, 0.56, -0.04));
+  for (const y of [0.12, 0.36]) {
+    for (let i = 0; i < 4; i++) g.add(box(0.12, 0.1, 0.02, M.window, -0.3 + i * 0.2, y, 0.265));
+  }
+  g.add(box(0.06, 0.2, 0.025, PUB.cross, 0.29, 0.46, 0.27));
+  g.add(box(0.2, 0.06, 0.025, PUB.cross, 0.29, 0.53, 0.27));
+  // Canopy and door (over the lower middle windows).
+  g.add(box(0.3, 0.03, 0.18, PUB.clinicRoof, 0, 0.26, 0.34));
+  g.add(box(0.025, 0.26, 0.025, M.pedestal, -0.13, 0, 0.42));
+  g.add(box(0.025, 0.26, 0.025, M.pedestal, 0.13, 0, 0.42));
+  g.add(box(0.16, 0.22, 0.02, M.window, 0, 0, 0.265));
+  return g;
+}
+
+/** Policijska postaja: grey-blue house with a blue band, a sign and a siren on the roof. */
+function police() {
+  const g = new THREE.Group();
+  g.add(box(0.74, 0.42, 0.56, PUB.policeWall, 0, 0, -0.04));
+  g.add(box(0.74, 0.06, 0.565, PUB.policeBlue, 0, 0.3, -0.04));
+  g.add(box(0.78, 0.05, 0.6, PUB.policeRoof, 0, 0.42, -0.04));
+  g.add(box(0.12, 0.2, 0.02, M.door, -0.18, 0, 0.245));
+  g.add(box(0.14, 0.1, 0.02, M.window, 0.12, 0.13, 0.245));
+  g.add(box(0.3, 0.08, 0.03, PUB.policeBlue, 0.1, 0.32, 0.255));
+  const siren = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), PUB.siren);
+  siren.position.set(0.22, 0.5, -0.1);
+  siren.name = 'siren';
+  g.add(siren);
+  return g;
+}
+
+/** Trgovina: a small shop with a striped awning and crates of apples out front. */
+function shop(variant) {
+  const g = new THREE.Group();
+  g.add(box(0.7, 0.34, 0.5, PUB.shopWall, 0, 0, -0.08));
+  g.add(gable(0.78, 0.2, 0.58, M.innRoof, 0.34).translateZ(-0.08));
+  g.add(box(0.36, 0.17, 0.02, M.window, -0.1, 0.08, 0.175));
+  g.add(box(0.12, 0.22, 0.02, M.door, 0.22, 0, 0.175));
+  // Striped awning: alternating slats, tilted down towards the street.
+  for (let i = 0; i < 6; i++) {
+    const slat = box(0.11, 0.02, 0.18, i % 2 ? PUB.awningWhite : PUB.awningRed, -0.29 + i * 0.116, 0.27, 0.25);
+    slat.rotation.x = 0.35;
+    g.add(slat);
+  }
+  for (const x of [-0.24, 0.0]) {
+    g.add(box(0.14, 0.07, 0.1, PUB.crate, x, 0, 0.33));
+    g.add(box(0.12, 0.025, 0.08, PUB.apple, x, 0.07, 0.33));
+  }
+  g.rotation.y = (variant % 4) * (Math.PI / 2);
+  return g;
+}
+
+/** Vinograd: rows of vines on posts over bare soil; leaves change colour in autumn. */
+function vineyard() {
+  const g = new THREE.Group();
+  const soil = box(0.96, 0.02, 0.96, PUB.soil);
+  soil.castShadow = false;
+  g.add(soil);
+  for (let r = 0; r < 4; r++) {
+    const z = -0.33 + r * 0.22;
+    g.add(box(0.8, 0.14, 0.07, PUB.vine, 0, 0.08, z));
+    for (const x of [-0.42, 0, 0.42]) g.add(box(0.025, 0.24, 0.025, PUB.post, x, 0, z));
+    for (let k = 0; k < 4; k++) g.add(box(0.035, 0.05, 0.035, PUB.grape, -0.3 + k * 0.2, 0.06, z + 0.045));
+  }
+  return g;
+}
+
+/** Pokopališče: a low stone wall, rows of graves with red candles and two cypresses. */
+function cemetery() {
+  const g = new THREE.Group();
+  const ground = box(0.94, 0.015, 0.94, PUB.gravel);
+  ground.castShadow = false;
+  g.add(ground);
+  // Wall with a gap for the gate at the front.
+  g.add(box(0.94, 0.1, 0.04, PUB.stone, 0, 0, -0.45));
+  g.add(box(0.04, 0.1, 0.94, PUB.stone, -0.45, 0, 0));
+  g.add(box(0.04, 0.1, 0.94, PUB.stone, 0.45, 0, 0));
+  g.add(box(0.33, 0.1, 0.04, PUB.stone, -0.3, 0, 0.45));
+  g.add(box(0.33, 0.1, 0.04, PUB.stone, 0.3, 0, 0.45));
+  for (let row = 0; row < 3; row++) {
+    for (let col = 0; col < 3; col++) {
+      const x = -0.24 + col * 0.24;
+      const z = -0.28 + row * 0.24;
+      g.add(box(0.1, 0.13, 0.03, PUB.grave, x, 0, z));
+      g.add(box(0.1, 0.02, 0.12, PUB.grave, x, 0, z + 0.07));
+      g.add(box(0.025, 0.035, 0.025, PUB.candle, x + 0.03, 0.02, z + 0.1));
+    }
+  }
+  for (const x of [-0.36, 0.36]) g.add(at(cone(0.07, 0.42, PUB.cypress, 7, 0.02), x, 0.36));
+  return g;
+}
+
+const BUILDERS = { road, house, church, roundabout, firehouse, hall, inn, factory, flats, clinic, police, shop, vineyard, cemetery };
 
 /** Returns a new Object3D for the given tile type, or null for grass. */
 /** Returns a new Object3D for the given tile type (with its upgrades), or null for grass. */
@@ -305,12 +477,12 @@ function decorate(g, type, upgrades) {
     case 'roundabout':
       if (has('statue')) g.getObjectByName('statue').scale.setScalar(1.8);
       if (has('fountain')) {
-        g.add(cylinder(0.27, 0.27, 0.1, UP.water, 20, 0.02));
+        g.add(cylinder(0.22, 0.22, 0.1, UP.water, 20, 0.02));
         for (let i = 0; i < 6; i++) {
           const a = (i / 6) * Math.PI * 2;
           const jet = cylinder(0.01, 0.015, 0.16, UP.water, 5, 0.1);
-          jet.position.x = Math.cos(a) * 0.2;
-          jet.position.z = Math.sin(a) * 0.2;
+          jet.position.x = Math.cos(a) * 0.16;
+          jet.position.z = Math.sin(a) * 0.16;
           g.add(jet);
         }
       }
@@ -339,6 +511,67 @@ function decorate(g, type, upgrades) {
     case 'factory':
       if (has('filter')) g.add(at(cylinder(0.08, 0.08, 0.1, UP.metal, 10, 1.03), 0.3, -0.24));
       if (has('line')) g.add(box(0.3, 0.26, 0.32, M.factoryWall, -0.3, 0, -0.36));
+      break;
+    case 'flats':
+      if (has('elevator')) g.add(box(0.14, 1.3, 0.14, UP.metal, -0.36, 0, -0.2));
+      if (has('playground')) {
+        g.add(box(0.03, 0.18, 0.03, UP.fireRed, 0.25, 0, 0.45));
+        g.add(box(0.03, 0.18, 0.03, UP.fireRed, 0.45, 0, 0.45));
+        g.add(box(0.24, 0.02, 0.02, UP.fireRed, 0.35, 0.18, 0.45));
+        g.add(box(0.1, 0.06, 0.18, UP.flowerPink, -0.3, 0, 0.42));
+      }
+      break;
+    case 'clinic':
+      if (has('ambulance')) {
+        g.add(box(0.3, 0.15, 0.15, PUB.clinicWall, -0.28, 0, 0.42));
+        g.add(box(0.3, 0.03, 0.155, PUB.cross, -0.28, 0.07, 0.42));
+      }
+      if (has('pharmacy')) {
+        g.add(box(0.025, 0.3, 0.025, M.pedestal, 0.42, 0, 0.42));
+        g.add(box(0.12, 0.04, 0.02, UP.banner, 0.42, 0.3, 0.42));
+        g.add(box(0.04, 0.12, 0.02, UP.banner, 0.42, 0.26, 0.42));
+      }
+      break;
+    case 'police':
+      if (has('radar')) {
+        g.add(box(0.025, 0.32, 0.025, UP.metal, 0.42, 0, 0.42));
+        g.add(box(0.1, 0.08, 0.07, UP.speaker, 0.42, 0.3, 0.42));
+      }
+      if (has('patrol')) {
+        g.add(box(0.28, 0.08, 0.15, PUB.policeWall, -0.26, 0.03, 0.42));
+        g.add(box(0.16, 0.07, 0.14, PUB.policeBlue, -0.28, 0.11, 0.42));
+      }
+      break;
+    case 'shop':
+      if (has('bakery')) g.add(box(0.07, 0.16, 0.07, M.chimney, 0.2, 0.45, -0.2));
+      if (has('parking')) {
+        const lot = box(0.5, 0.012, 0.22, M.road, 0, 0, 0.36);
+        lot.castShadow = false;
+        g.add(lot);
+      }
+      break;
+    case 'vineyard':
+      if (has('cellar')) {
+        g.add(box(0.26, 0.18, 0.2, WALLS[0], 0.32, 0, 0.34));
+        g.add(at(gable(0.3, 0.12, 0.24, ROOFS[0], 0.18), 0.32, 0.34));
+      }
+      if (has('klopotec')) {
+        // Klopotec, the Slovenian wind rattle: a tall pole with a wooden propeller.
+        g.add(box(0.025, 0.6, 0.025, PUB.post, -0.38, 0, 0.4));
+        const blades = box(0.3, 0.025, 0.03, PUB.post, -0.38, 0.6, 0.42);
+        blades.rotation.z = 0.5;
+        blades.name = 'klopotec';
+        g.add(blades);
+      }
+      break;
+    case 'cemetery':
+      if (has('chapel')) {
+        g.add(box(0.22, 0.2, 0.18, M.churchWall, 0.3, 0, -0.3));
+        g.add(at(gable(0.26, 0.14, 0.22, M.churchRoof, 0.2), 0.3, -0.3));
+      }
+      if (has('candles')) {
+        for (let i = 0; i < 8; i++) g.add(box(0.025, 0.035, 0.025, PUB.candle, -0.35 + i * 0.1, 0.02, 0.32));
+      }
       break;
     case 'church':
       if (has('tower')) g.traverse((o) => o.isMesh && o.material === M.spire && (o.material = M.gold));
@@ -516,6 +749,33 @@ export function createTractor() {
   return g;
 }
 
+const CAR_COLORS = ['#c0392b', '#2e6fb7', '#e8e4da', '#3b3f45', '#d9a521', '#4f8a4b', '#8e9aa6'].map((c) => material(c));
+const TYRE = material('#232323');
+const CHARRED = material('#2a2522');
+
+/** A small car facing +x (like the event actors). */
+export function createCar(variant = 0) {
+  const g = new THREE.Group();
+  const paint = CAR_COLORS[variant % CAR_COLORS.length];
+  g.add(box(0.36, 0.09, 0.19, paint, 0, 0.04, 0));
+  g.add(box(0.19, 0.08, 0.17, M.window, -0.03, 0.13, 0));
+  g.add(box(0.2, 0.02, 0.18, paint, -0.03, 0.21, 0));
+  for (const [x, z] of [[0.11, 0.09], [0.11, -0.09], [-0.11, 0.09], [-0.11, -0.09]]) {
+    const w = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.04, 10), TYRE);
+    w.rotation.x = Math.PI / 2;
+    w.position.set(x, 0.045, z);
+    g.add(w);
+  }
+  return g;
+}
+
+/** Turns a vehicle into a burnt-out wreck (riots). */
+export function charVehicle(obj) {
+  obj.traverse((o) => {
+    if (o.isMesh && o.material !== TYRE) o.material = CHARRED;
+  });
+}
+
 function person(bodyMat, { dress = false } = {}) {
   const g = new THREE.Group();
   const body = new THREE.Mesh(
@@ -541,9 +801,87 @@ export function createWeddingGroup() {
   return members;
 }
 
+const KRPAN = {
+  coat: material('#6b4a2e'),
+  hat: material('#2c241d'),
+  mare: material('#8a6a4a'),
+  mane: material('#3b2c20'),
+  sack: material('#f1eee6'),
+};
+
+/**
+ * The rare visitor: a very tall, broad man in a brown coat and hat, leading a small mare
+ * with two white sacks. Faces +x like the other actors.
+ */
+export function createKrpan() {
+  const g = new THREE.Group();
+  const man = person(KRPAN.coat);
+  man.scale.set(1.45, 1.55, 1.45);
+  const hat = cylinder(0.075, 0.075, 0.03, KRPAN.hat, 10, 0.33);
+  hat.add(cylinder(0.045, 0.05, 0.06, KRPAN.hat, 10, 0.03));
+  man.add(hat);
+  man.position.x = 0.22;
+  g.add(man);
+  // The little mare behind him.
+  const mare = new THREE.Group();
+  mare.add(box(0.28, 0.12, 0.12, KRPAN.mare, 0, 0.12, 0));
+  mare.add(box(0.08, 0.14, 0.08, KRPAN.mare, 0.15, 0.2, 0).rotateZ(-0.4));
+  mare.add(box(0.1, 0.06, 0.06, KRPAN.mare, 0.21, 0.27, 0));
+  mare.add(box(0.03, 0.08, 0.13, KRPAN.mane, 0.1, 0.24, 0));
+  mare.add(box(0.03, 0.12, 0.03, KRPAN.mane, -0.15, 0.12, 0).rotateZ(0.5));
+  for (const [x, z] of [[0.1, 0.04], [0.1, -0.04], [-0.1, 0.04], [-0.1, -0.04]]) mare.add(box(0.035, 0.12, 0.035, KRPAN.mane, x, 0, z));
+  // Two sacks of "grinding stones" hanging on both sides.
+  mare.add(box(0.14, 0.1, 0.06, KRPAN.sack, 0, 0.16, 0.09));
+  mare.add(box(0.14, 0.1, 0.06, KRPAN.sack, 0, 0.16, -0.09));
+  mare.position.x = -0.12;
+  g.add(mare);
+  return g;
+}
+
 export function createJournalist() {
   const g = person(EV.jacket);
   g.add(box(0.08, 0.07, 0.1, EV.camera, 0.08, 0.2, 0));
   g.add(box(0.05, 0.04, 0.04, EV.camera, 0.14, 0.22, 0));
+  return g;
+}
+
+// ---------------------------------------------------------------------------
+// "For sale" sign on plots around the municipality
+
+let saleTexture = null;
+function saleSignTexture() {
+  if (saleTexture) return saleTexture;
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 128;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#fbf6e6';
+  ctx.fillRect(0, 0, 256, 128);
+  ctx.strokeStyle = '#c0392b';
+  ctx.lineWidth = 10;
+  ctx.strokeRect(5, 5, 246, 118);
+  ctx.fillStyle = '#c0392b';
+  ctx.font = 'bold 46px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('NA PRODAJ', 128, 66);
+  saleTexture = new THREE.CanvasTexture(c);
+  saleTexture.colorSpace = THREE.SRGBColorSpace;
+  return saleTexture;
+}
+
+export function createSaleSign() {
+  const g = new THREE.Group();
+  const wood = material('#7a5532');
+  g.add(box(0.05, 0.7, 0.05, wood, -0.4, 0, 0));
+  g.add(box(0.05, 0.7, 0.05, wood, 0.4, 0, 0));
+  const board = new THREE.Mesh(
+    new THREE.BoxGeometry(1.0, 0.5, 0.04),
+    [wood, wood, wood, wood, new THREE.MeshLambertMaterial({ map: saleSignTexture() }), new THREE.MeshLambertMaterial({ map: saleSignTexture() })],
+  );
+  board.position.y = 0.72;
+  board.castShadow = true;
+  g.add(board);
+  g.rotation.y = (5 * Math.PI) / 4; // faces the default camera
   return g;
 }

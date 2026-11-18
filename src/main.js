@@ -1,10 +1,11 @@
 // Entry point: wires game logic (src/game), Three.js view (src/render) and HTML UI (src/ui).
 
 import './ui/styles.css';
+import { CONFIG } from './config.js';
 import { Game } from './game/game.js';
 import { MapView } from './render/scene.js';
-import { DISTRICTS, districtOf } from './game/map.js';
-import { TOOL_INFO } from './game/texts.js';
+import { DISTRICTS, districtOf, idx, plotAt, isOwned } from './game/map.js';
+import { TOOL_INFO, NO_ROAD } from './game/texts.js';
 import { createTopbar } from './ui/topbar.js';
 import { createSidebar } from './ui/sidebar.js';
 import { createCitizenPopup } from './ui/citizenPopup.js';
@@ -22,7 +23,13 @@ import { loadGame, saveGame, clearSave, describeSave } from './game/save.js';
 import { MONTHS } from './game/texts.js';
 import { openModal } from './ui/modal.js';
 import { createBuildingPanel } from './ui/buildingPanel.js';
-import { idx } from './game/map.js';
+import { hamletPrice, checkHamlet } from './game/hamlets.js';
+import { NEEDS_ROAD, hasRoadAccess } from './game/roads.js';
+import { formatEuro } from './game/util.js';
+import { seasonOf } from './game/seasons.js';
+import { startTutorial, tutorialActive } from './ui/tutorial.js';
+import { EGGS } from './game/eastereggs.js';
+import { withMunicipality, municipalityTitle, randomName, cleanName, MAX_NAME_LENGTH } from './game/municipality.js';
 
 // A saved game continues where it stopped (paused until the player confirms).
 const storage = (() => {
@@ -46,7 +53,10 @@ window.addEventListener('pointerdown', unlockSfx);
 window.addEventListener('keydown', unlockSfx);
 
 const LEVER_SOUNDS = { cousin: 'coin', praise: 'paper', neighbor: 'paper', snow: 'chime', party: 'fanfare', media: 'shush', minister: 'clink' };
-const ticker = new NewsTicker(document.getElementById('news'));
+const ticker = new NewsTicker(document.getElementById('news'), {
+  season: () => seasonOf(game.state.month),
+  format: (text) => withMunicipality(text, game.state), // local news can name the municipality
+});
 // ---------------------------------------------------------------------------
 // The mayor in person: he walks to people, events and ribbons before acting.
 
@@ -79,6 +89,46 @@ function sendMayorToRibbon(x, y) {
     () => toast('Prepozno – otvoritev je že mimo.', 'error'),
   );
 }
+
+function sendMayorToKrpan() {
+  view.mayor.approach(
+    () => view.krpanWorld(),
+    () => {
+      const res = game.meetKrpan();
+      if (!res.ok) return;
+      toast(`🧂 Možak je pustil vrečo »brusnih kamnov« za zimsko službo: +${formatEuro(res.money)}`, 'good', 6000);
+      view.labels.emote('🧂', () => view.krpanWorld() || view.mayor.pos);
+      view.mayor.cheer();
+      sfx.play('coin');
+    },
+    () => toast('Možak s kobilico je že izginil v gozdu.', 'info'),
+  );
+}
+
+// --- Easter eggs: the church bells and the local wine --------------------------------
+let churchClicks = 0;
+let lastChurchClick = 0;
+const now = () => performance.now();
+
+function ringChurchBells(tile) {
+  game.ringBells();
+  for (let i = 0; i < 6; i++) setTimeout(() => sfx.play('bell'), i * 650);
+  view.labels.emote('🔔', () => view.tileWorld(tile.x, tile.y), 4);
+  toast('🔔 Mežnar je zvonil ob napačni uri. Pol vasi gre k maši, pol na kosilo.', 'info', 5000);
+}
+
+// Typing »cviček« anywhere (without the háček works too) pours a round for everyone.
+let typed = '';
+document.addEventListener('keydown', (e) => {
+  if (e.target instanceof HTMLInputElement || e.key.length !== 1) return;
+  typed = (typed + e.key.toLowerCase()).slice(-8);
+  if (!/cvi[čc]ek$/.test(typed)) return;
+  typed = '';
+  const res = game.pourCvicek();
+  if (!res.ok) return toast('Cvička je zmanjkalo. Nova trgatev pride šele jeseni.', 'info');
+  toast('🍷 Cviček za vse! Občina se rahlo ziba.', 'good', 5000);
+  sfx.play('clink');
+});
 
 function sendMayorToEvent() {
   view.mayor.approach(
@@ -126,13 +176,17 @@ const sidebar = createSidebar(document.getElementById('sidebar'), game, {
   onNextMonth() {
     game.nextMonth();
   },
+  onBlocked(reason) {
+    toast(reason, 'error');
+    sfx.play('error');
+  },
 });
 
 game.on('news', (text) => ticker.push(text));
 // Time runs on its own; the report appears as a corner card. Opening the full report pauses.
 let speedBeforeReport = 0;
 game.on('month', (report) => {
-  sfx.play(report.damage && report.unrest === 'riot' ? 'fire' : 'bell');
+  sfx.play(report.damage?.type && report.unrest === 'riot' ? 'fire' : 'bell');
   showMonthCard(report, {
     onOpen() {
       speedBeforeReport = game.state.speed;
@@ -225,6 +279,7 @@ game.on('campaign', ({ opponent, replaced }) => {
 function openElection(result) {
   sfx.play('drumroll');
   showElection(result, {
+    place: municipalityTitle(game.state),
     onContinue: () => game.acknowledgeElection(),
     onRecount: () => {
       sfx.play('drumroll');
@@ -240,7 +295,7 @@ function openElection(result) {
 game.on('election', openElection);
 game.on('gameover', (e) => {
   if (storage) clearSave(storage); // a finished game can't be continued
-  showGameOver(e);
+  showGameOver(e, municipalityTitle(game.state));
 });
 createCampaignPanel(document.getElementById('campaign-panel'), game, {
   onBribe() {
@@ -273,6 +328,17 @@ function renderHover() {
     );
     return;
   }
+  if (h?.krpan && game.state.krpan) {
+    view.preview.hide();
+    showTooltip(
+      `<div class="tt-title">🐴 Možak s kobilico</div>
+       <div>Velik kot hrast, s tovorom, za katerega pravi, da so brusni kamni.</div>
+       <div class="tt-muted">${game.state.krpan.met ? 'Z županom sta se že pozdravila.' : 'Klikni in župan ga ustavi.'}</div>`,
+      h.clientX,
+      h.clientY,
+    );
+    return;
+  }
   // A live event under the mouse: say what clicking does and what happens if ignored.
   if (h?.mapEvent && game.state.mapEvent) {
     const info = game.describeMapEvent();
@@ -289,6 +355,19 @@ function renderHover() {
   if (!h || (!h.tile && h.citizenId == null)) {
     view.preview.hide();
     hideTooltip('map');
+    return;
+  }
+  // Land for sale around the municipality.
+  const plot = h.tile && h.citizenId == null && !isOwned(game.state, h.tile.x, h.tile.y) ? plotAt(h.tile.x, h.tile.y) : null;
+  if (plot && !tool) {
+    view.preview.hide();
+    showTooltip(
+      `<div class="tt-title">🏷️ Na prodaj: ${DISTRICTS[plot.id].name}</div>
+       <div class="tt-good">${formatEuro(hamletPrice(game.state))} · nov zaselek s cestami in prvimi prebivalci</div>
+       <div class="tt-muted">Klikni za nakup.</div>`,
+      h.clientX,
+      h.clientY,
+    );
     return;
   }
 
@@ -309,7 +388,7 @@ function renderHover() {
       h.clientY,
     );
   } else if (forecast) {
-    const district = DISTRICTS[districtOf(h.tile.x, h.tile.y)].name;
+    const district = DISTRICTS[districtOf(h.tile.x, h.tile.y)]?.name || 'gozd izven občine';
     let html = `<div class="tt-title">${TOOL_INFO[tool].icon} ${TOOL_INFO[tool].name} · ${district}</div>`;
     if (forecast.text) html += `<div class="${forecast.ok ? 'tt-good' : ''}">${escapeHtml(forecast.text)}</div>`;
     if (!forecast.ok && forecast.reason) html += `<div class="tt-bad">${escapeHtml(forecast.reason)}</div>`;
@@ -334,10 +413,17 @@ const buildingPanel = createBuildingPanel(game, {
   onRibbon: (x, y) => sendMayorToRibbon(x, y),
 });
 
-view.onClick = ({ tile, citizenId, mapEvent, point, clientX, clientY }) => {
+view.onClick = ({ tile, citizenId, mapEvent, krpan, point, clientX, clientY }) => {
+  // With a menu open on the right, a click on the map just closes it.
+  if (sidebar.closeMenu()) return;
   // Live events take priority over everything else, even an active build tool: the mayor runs there.
   if (mapEvent && game.state.mapEvent) {
     sendMayorToEvent();
+    return;
+  }
+  // The rare visitor: the mayor runs after him.
+  if (krpan && game.state.krpan) {
+    sendMayorToKrpan();
     return;
   }
   if (tool) {
@@ -345,6 +431,10 @@ view.onClick = ({ tile, citizenId, mapEvent, point, clientX, clientY }) => {
     const res = game.act(tool, tile.x, tile.y);
     if (!res.ok && res.reason) toast(res.reason, 'error');
     sfx.play(!res.ok ? 'error' : tool === 'demolish' ? 'demolish' : 'build');
+    // Built somewhere with no road: tell the player why nothing will happen there.
+    if (res.ok && NEEDS_ROAD.has(tool) && !hasRoadAccess(game.state, tile.x, tile.y)) {
+      toast(`🚧 ${NO_ROAD[tool]}`, 'error', 5000);
+    }
     // After every successful build the tool lets go of the mouse: back to "Na teren".
     if (res.ok) sidebar.setTool(null);
     return;
@@ -358,6 +448,14 @@ view.onClick = ({ tile, citizenId, mapEvent, point, clientX, clientY }) => {
     return;
   }
   const t = tile && game.state.grid[idx(tile.x, tile.y)];
+  // Land for sale: offer to buy it.
+  const plot = tile && !isOwned(game.state, tile.x, tile.y) ? plotAt(tile.x, tile.y) : null;
+  if (plot) {
+    popup.close();
+    buildingPanel.close();
+    if (!windowOpen) openHamletPurchase(plot.id);
+    return;
+  }
   // A building waiting for its opening: the mayor goes to cut the ribbon.
   if (t?.build?.phase === 'opening') {
     popup.close();
@@ -365,6 +463,15 @@ view.onClick = ({ tile, citizenId, mapEvent, point, clientX, clientY }) => {
     sendMayorToRibbon(tile.x, tile.y);
     return;
   }
+  // Seven clicks on the church in a row ring the bells (easter egg).
+  if (t?.type === 'church') {
+    churchClicks = now() - lastChurchClick < 1500 ? churchClicks + 1 : 1;
+    lastChurchClick = now();
+    if (churchClicks >= EGGS.bellClicks) {
+      churchClicks = 0;
+      ringChurchBells(tile);
+    }
+  } else churchClicks = 0;
   // Any building (church and roundabouts included): open its panel.
   if (t && t.type !== 'grass' && t.type !== 'road') {
     popup.close();
@@ -377,6 +484,47 @@ view.onClick = ({ tile, citizenId, mapEvent, point, clientX, clientY }) => {
   // Meadow or road: the mayor takes a walk.
   if (point) view.mayor.goTo(point);
 };
+
+// ---------------------------------------------------------------------------
+// Buying land: a new hamlet
+
+function openHamletPurchase(plotId) {
+  const d = DISTRICTS[plotId];
+  const check = checkHamlet(game.state, plotId);
+  const price = hamletPrice(game.state);
+  // Think in peace: time (and live events) stop while the window is open.
+  const speedBefore = game.state.speed;
+  game.setSpeed(0);
+  const { el, close: closeModal } = openModal(
+    `<header><div class="kicker">Nakup zemljišča · igra je na pavzi</div><h3>Nov zaselek: ${d.name}</h3></header>
+     <div class="body">
+       <p>Kmet bi prodal njivo in gozd. Pravi, da »samo zato, ker ste vi«.</p>
+       <ul class="hamlet-list">
+         <li>🛣️ ceste do zaselka in skozenj</li>
+         <li>👪 ${CONFIG.hamlets.newCitizens} novi občani se priselijo</li>
+         <li>🏗️ prostor za nove hiše, bloke in vse ostalo</li>
+         <li>😒 ostali konci bodo malce fovšni</li>
+       </ul>
+       ${check.ok ? '' : `<p class="neg-ink">${check.reason}</p>`}
+     </div>
+     <footer class="election-actions">
+       <button id="buy-plot" ${check.ok ? '' : 'disabled'}>Kupi za ${formatEuro(price)}</button>
+       <button id="cancel-plot" class="secondary">Ne zdaj</button>
+     </footer>`,
+  );
+  const close = () => {
+    closeModal();
+    if (speedBefore > 0) game.setSpeed(speedBefore);
+  };
+  el.querySelector('#cancel-plot').addEventListener('click', close);
+  el.querySelector('#buy-plot').addEventListener('click', () => {
+    close();
+    const res = game.buyHamlet(plotId);
+    if (!res.ok) return toast(res.reason, 'error');
+    toast(res.news, 'good', 6000);
+    sfx.play('fanfare');
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Map buttons and keyboard
@@ -411,6 +559,7 @@ sfxBtn.addEventListener('click', () => sfxBtn.classList.toggle('active', sfx.tog
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
+    sidebar.closeMenu();
     sidebar.setTool(null);
     popup.close();
     buildingPanel.close();
@@ -454,6 +603,22 @@ game.on('month', autosave);
 document.addEventListener('visibilitychange', () => document.hidden && autosave());
 window.addEventListener('pagehide', autosave);
 
+// What the tutorial's hands-on steps watch and reset.
+const tutorialHooks = {
+  popupOpen: () => popup.currentId != null,
+  closePopup: () => popup.close(),
+  envyOn: () => envyBtn.classList.contains('active'),
+  cameraAngle: () => view.controls.goalAzimuth,
+  setEnvy: (on) => {
+    envyBtn.classList.toggle('active', on);
+    view.setOverlay(on);
+  },
+  tool: () => tool,
+  setTool: (t) => sidebar.setTool(t),
+  openMenu: (id) => sidebar.openMenu(id),
+  closeMenu: () => sidebar.closeMenu(),
+};
+
 if (game.state === saved) {
   // Continue screen: the game waits paused until the mayor decides.
   const speed = game.state.speed || game.state.lastSpeed || 1;
@@ -479,8 +644,62 @@ if (game.state === saved) {
     window.location.reload();
   });
 } else {
-  toast('Dobrodošli, župan! Občani vas imajo radi. Še.', 'good', 5000);
+  // A new game: first the municipality gets its name, then the guided tour (skippable).
+  nameMunicipality(() =>
+    startTutorial(game, { hooks: tutorialHooks, onEnd: () => toast('Dobrodošli, župan! Občani vas imajo radi. Še.', 'good', 5000) }),
+  );
 }
+
+/** »Kako se imenuje vaša občina?« – time stands still until the mayor decides. */
+function nameMunicipality(then) {
+  game.setSpeed(0);
+  let suggestion = randomName();
+  const { el, close } = openModal(
+    `<header><div class="kicker">Nova igra</div><h3>Kako se imenuje vaša občina?</h3></header>
+     <div class="body">
+       <p class="muted">Ime bo v novicah, na volitvah in na tabli ob vstopu v občino.</p>
+       <div class="name-row">
+         <input id="muni-name" type="text" maxlength="${MAX_NAME_LENGTH}" autocomplete="off" spellcheck="false" aria-label="Ime občine" />
+         <button id="muni-dice" class="dice" title="Predlagaj drugo ime">🎲</button>
+       </div>
+     </div>
+     <footer><button id="muni-ok">Ustanovi občino</button></footer>`,
+  );
+  const input = el.querySelector('#muni-name');
+  input.value = suggestion;
+  input.focus();
+  input.select();
+  el.querySelector('#muni-dice').addEventListener('click', () => {
+    suggestion = randomName(input.value);
+    input.value = suggestion;
+    input.focus();
+    input.select();
+  });
+  const confirm = () => {
+    game.setMunicipality(cleanName(input.value) || suggestion);
+    close();
+    game.setSpeed(1);
+    then();
+  };
+  el.querySelector('#muni-ok').addEventListener('click', confirm);
+  input.addEventListener('keydown', (e) => {
+    e.stopPropagation(); // typing a name is not a keyboard shortcut (or the cviček easter egg)
+    if (e.key === 'Enter') {
+      e.preventDefault(); // the same Enter must not also press the tour's first button
+      confirm();
+    }
+  });
+}
+
+// The tour can be replayed any time (not over another open window).
+document.getElementById('tutorial-btn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (!document.getElementById('modal').hidden || tutorialActive()) return;
+  sidebar.setTool(null);
+  popup.close();
+  buildingPanel.close();
+  startTutorial(game, { hooks: tutorialHooks });
+});
 
 // Debug handle for the browser console (dev server only).
 if (import.meta.env.DEV) window.__obcina = { game, view };

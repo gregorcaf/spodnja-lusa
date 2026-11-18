@@ -4,8 +4,8 @@ import * as THREE from 'three';
 import { setLandscape, FACTORY_CHIMNEY } from './models.js';
 import { tileToWorld } from './coords.js';
 import { SIZE, idx } from '../game/map.js';
+import { BURNABLE } from '../game/unrest.js';
 
-const BURNABLE = ['house', 'firehouse', 'hall', 'roundabout', 'inn', 'factory'];
 const MAX_FIRES = 2;
 
 const SKY = new THREE.Color('#cfe4ec');
@@ -17,7 +17,7 @@ const SEASON_SKY = {
   winter: SNOW_SKY,
 };
 const FLAKES = 1800;
-const AREA = 13;
+const AREA = 20;
 
 export class Effects {
   constructor(scene) {
@@ -61,6 +61,22 @@ export class Effects {
     this.fires.push({ x, y, light, timer: 0 });
   }
 
+  /** A fire at a free world position (a burning car); `key` identifies it for removal. */
+  addWorldFire(key, pos) {
+    const light = new THREE.PointLight('#ff7a2a', 2.2, 2.5);
+    light.position.set(pos.x, 0.6, pos.z);
+    this.scene.add(light);
+    this.worldFires ??= [];
+    this.worldFires.push({ key, world: pos.clone(), light, timer: 0, x: pos.x });
+  }
+
+  removeWorldFire(key) {
+    this.worldFires = (this.worldFires || []).filter((f) => {
+      if (f.key === key) this.scene.remove(f.light);
+      return f.key !== key;
+    });
+  }
+
   spawnParticle(fire, smoke) {
     const sprite = new THREE.Sprite(
       new THREE.SpriteMaterial({
@@ -70,8 +86,10 @@ export class Effects {
         blending: smoke ? THREE.NormalBlending : THREE.AdditiveBlending,
       }),
     );
-    const p = tileToWorld(fire.x, fire.y);
-    sprite.position.set(p.x + (Math.random() - 0.5) * 0.5, smoke ? 0.7 : 0.25, p.z + (Math.random() - 0.5) * 0.5);
+    // Building fires sit on a tile and are spread wider; a car fire is small.
+    const p = fire.world || tileToWorld(fire.x, fire.y);
+    const spread = fire.world ? 0.25 : 0.5;
+    sprite.position.set(p.x + (Math.random() - 0.5) * spread, smoke ? (fire.world ? 0.45 : 0.7) : fire.world ? 0.15 : 0.25, p.z + (Math.random() - 0.5) * spread);
     sprite.userData = { life: 0, max: smoke ? 2.6 : 0.8, smoke, grow: smoke ? 0.5 : -0.25, size: smoke ? 0.3 : 0.4 };
     sprite.scale.setScalar(sprite.userData.size);
     this.scene.add(sprite);
@@ -210,7 +228,7 @@ export class Effects {
     this.syncRiot(state);
     this.syncEventFire(state);
     this.factorySmoke(dt, state);
-    for (const f of this.eventFire ? [...this.fires, this.eventFire] : this.fires) {
+    for (const f of [...this.fires, ...(this.eventFire ? [this.eventFire] : []), ...(this.worldFires || [])]) {
       f.light.intensity = 2 + Math.sin(time * 17 + f.x) * 0.6 + Math.random() * 0.5;
       f.timer -= dt;
       if (f.timer <= 0) {
