@@ -152,3 +152,39 @@ test('a cemetery makes its own district sad and the others relieved', () => {
     else assert.ok(c.envy < 30, 'others are relieved');
   }
 });
+
+test('the education ladder: each step needs the previous one and enough residents', async () => {
+  const { educationLevel, educationIncome } = await import('../src/game/education.js');
+  const game = newGame();
+  const s = game.state;
+  s.budget = 1e7;
+  const p = findTile(s, 'grass');
+  // A school without a kindergarten: no.
+  assert.equal(game.act('school', p.x, p.y).ok, false);
+  growTo(game, CONFIG.education.minPop.faculty);
+  assert.equal(educationIncome(s), 0);
+  for (const type of ['kindergarten', 'school', 'highschool', 'faculty']) place(game, type);
+  assert.equal(educationLevel(s), 4);
+  // The higher the education, the more each household brings in.
+  const inc = monthlyIncome(s);
+  assert.ok(inc.education > 0);
+  assert.equal(inc.education, CONFIG.education.perHousehold[4] * inc.houses);
+});
+
+test('a road dragged across the map is one L-shaped stretch, existing roads are skipped', async () => {
+  const { roadPath } = await import('../src/game/roads.js');
+  const path = roadPath({ x: 2, y: 2 }, { x: 5, y: 3 });
+  assert.deepEqual(path, [{ x: 2, y: 2 }, { x: 3, y: 2 }, { x: 4, y: 2 }, { x: 5, y: 2 }, { x: 5, y: 3 }]);
+  const game = newGame();
+  const s = game.state;
+  s.budget = 1e7;
+  const a = findTile(s, 'grass');
+  const before = s.budget;
+  const res = game.actMany('road', [a, a]); // the second tile is already road by then
+  assert.equal(res.built, 1);
+  assert.equal(before - s.budget, CONFIG.buildings.road.cost);
+  // Without money the stretch stops.
+  s.budget = 0;
+  const b = findTile(s, 'grass');
+  assert.equal(game.actMany('road', [b]).ok, false);
+});

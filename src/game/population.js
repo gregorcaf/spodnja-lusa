@@ -5,12 +5,15 @@ import { CONFIG } from '../config.js';
 import { SIZE, idx, districtOf, DISTRICTS } from './map.js';
 import { roadNetwork, hasRoadAccess } from './roads.js';
 
-const HOUSEHOLDS = { house: 1 }; // flats come from CONFIG
+/** Households a finished building of this type holds (0 = nobody lives there). */
+export function householdsPer(type) {
+  const p = CONFIG.population;
+  return { house: 1, flats: p.flatsHouseholds, tower: p.towerHouseholds }[type] || 0;
+}
 
 function householdsOf(tile) {
   if (tile.build?.phase === 'construction') return 0;
-  if (tile.type === 'flats') return CONFIG.population.flatsHouseholds;
-  return HOUSEHOLDS[tile.type] || 0;
+  return householdsPer(tile.type);
 }
 
 /** Households in buildings that are finished and reachable by road (nobody moves in otherwise). */
@@ -20,7 +23,7 @@ export function households(state) {
   for (let y = 0; y < SIZE; y++) {
     for (let x = 0; x < SIZE; x++) {
       const t = state.grid[idx(x, y)];
-      if (HOUSEHOLDS[t.type] || t.type === 'flats') n += hasRoadAccess(state, x, y, network) ? householdsOf(t) : 0;
+      if (householdsPer(t.type)) n += hasRoadAccess(state, x, y, network) ? householdsOf(t) : 0;
     }
   }
   return n;
@@ -43,7 +46,7 @@ export function districtPopulation(state) {
     for (let x = 0; x < SIZE; x++) {
       const d = districtOf(x, y);
       const t = state.grid[idx(x, y)];
-      if (d < 0 || !(HOUSEHOLDS[t.type] || t.type === 'flats') || !hasRoadAccess(state, x, y, network)) continue;
+      if (d < 0 || !householdsPer(t.type) || !hasRoadAccess(state, x, y, network)) continue;
       out[d] += householdsOf(t) * CONFIG.population.perHousehold;
     }
   }

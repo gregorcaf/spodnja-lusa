@@ -8,9 +8,10 @@ import { startConstruction } from './construction.js';
 import { population, canBuildFactory } from './population.js';
 import { NEEDS_ROAD, hasRoadAccess } from './roads.js';
 import { canBuildClinic } from './services.js';
+import { educationBlocked } from './education.js';
 import { pick, capitalize, fillTemplate, formatEuro, formatSigned } from './util.js';
 
-export const BUILD_TOOLS = ['road', 'house', 'flats', 'roundabout', 'firehouse', 'hall', 'inn', 'factory', 'clinic', 'police', 'shop', 'vineyard', 'cemetery'];
+export const BUILD_TOOLS = ['road', 'house', 'flats', 'tower', 'roundabout', 'firehouse', 'hall', 'inn', 'factory', 'clinic', 'police', 'shop', 'vineyard', 'cemetery', 'kindergarten', 'school', 'highschool', 'faculty'];
 export const TOOLS = [...BUILD_TOOLS, 'demolish'];
 
 export function getTile(state, x, y) {
@@ -40,6 +41,8 @@ export function toolBlocked(state, tool) {
     const reason = BUILD_ERRORS.clinicPopulation.replace('{min}', CONFIG.services.clinicMin).replace('{now}', population(state));
     return { kind: 'locked', reason, need: CONFIG.services.clinicMin };
   }
+  const edu = educationBlocked(state, tool);
+  if (edu) return { kind: 'locked', reason: edu.reason, label: edu.label };
   if (state.budget < toolCost(tool)) return { kind: 'money', reason: pick(NO_MONEY) };
   return null;
 }
@@ -73,6 +76,8 @@ export function checkAction(state, tool, x, y) {
     const reason = BUILD_ERRORS.clinicPopulation.replace('{min}', CONFIG.services.clinicMin).replace('{now}', population(state));
     return { ok: false, reason };
   }
+  const edu = educationBlocked(state, tool);
+  if (edu) return { ok: false, reason: edu.reason };
   if (state.budget < toolCost(tool)) return { ok: false, reason: pick(NO_MONEY), noMoney: true };
   return { ok: true, reason: '' };
 }

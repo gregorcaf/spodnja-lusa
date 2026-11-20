@@ -10,6 +10,10 @@ export function showTooltip(html, clientX, clientY, by = 'map') {
   const t = el();
   t.innerHTML = html;
   t.hidden = false;
+  // Measure at the top-left corner: near the right edge the box would be squeezed narrower,
+  // and a width that depends on the previous position makes the tooltip flip back and forth.
+  t.style.left = '0px';
+  t.style.top = '0px';
   const pad = 16;
   const rect = t.getBoundingClientRect();
   let x = clientX + pad;

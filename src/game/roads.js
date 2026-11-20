@@ -4,7 +4,7 @@
 import { SIZE, HALF, CORE, CORE_SIZE, idx, inBounds, isWalkable } from './map.js';
 
 /** Building types that need a road to work (residents, income, firefighters). */
-export const NEEDS_ROAD = new Set(['house', 'flats', 'inn', 'factory', 'firehouse', 'hall', 'clinic', 'police', 'shop']);
+export const NEEDS_ROAD = new Set(['house', 'flats', 'tower', 'inn', 'factory', 'firehouse', 'hall', 'clinic', 'police', 'shop', 'kindergarten', 'school', 'highschool', 'faculty']);
 
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
@@ -56,6 +56,27 @@ export function disconnectedBuildings(state) {
       const t = state.grid[idx(x, y)];
       if (NEEDS_ROAD.has(t.type) && !hasRoadAccess(state, x, y, network)) out.push({ x, y, type: t.type });
     }
+  }
+  return out;
+}
+
+/**
+ * Tiles of an L-shaped road from a to b (inclusive): first along the longer axis, then the shorter.
+ * Used for drag-to-build roads.
+ */
+export function roadPath(a, b) {
+  const out = [];
+  const horizontalFirst = Math.abs(b.x - a.x) >= Math.abs(b.y - a.y);
+  const sx = Math.sign(b.x - a.x);
+  const sy = Math.sign(b.y - a.y);
+  let { x, y } = a;
+  out.push({ x, y });
+  if (horizontalFirst) {
+    while (x !== b.x) out.push({ x: (x += sx), y });
+    while (y !== b.y) out.push({ x, y: (y += sy) });
+  } else {
+    while (y !== b.y) out.push({ x, y: (y += sy) });
+    while (x !== b.x) out.push({ x: (x += sx), y });
   }
   return out;
 }

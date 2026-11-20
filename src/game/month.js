@@ -80,6 +80,7 @@ export function advanceMonth(state) {
       rate: income.rate,
       business: income.business,
       harvest: income.harvest,
+      education: income.education,
       total: income.total,
     },
     expenses: { base: expenses.base, upkeep: expenses.upkeep, total: expenses.total },

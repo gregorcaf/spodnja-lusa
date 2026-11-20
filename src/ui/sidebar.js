@@ -14,8 +14,9 @@ import { toolHelp, leverHelp, taxHelp } from './help.js';
 
 /** Building groups, each its own menu. */
 const BUILD_MENUS = [
-  { id: 'homes', icon: '🏠', name: 'Bivanje', tools: ['road', 'house', 'flats', 'roundabout'] },
+  { id: 'homes', icon: '🏠', name: 'Bivanje', tools: ['road', 'house', 'flats', 'tower', 'roundabout'] },
   { id: 'public', icon: '🏛️', name: 'Javno', tools: ['firehouse', 'clinic', 'police', 'cemetery', 'hall'] },
+  { id: 'edu', icon: '🎓', name: 'Šolstvo', tools: ['kindergarten', 'school', 'highschool', 'faculty'] },
   { id: 'business', icon: '💼', name: 'Posel', tools: ['inn', 'shop', 'factory', 'vineyard'] },
 ];
 const OTHER_MENUS = {
@@ -159,7 +160,7 @@ export function createSidebar(el, game, { onToolChange, onLever, onNextMonth, on
       if (id === 'demolish') continue;
       // Three looks: buildable, too expensive (grey, red price), locked by a condition (grey, 🔒).
       const blocked = toolBlocked(s, id);
-      b.querySelector('.t-cost').textContent = blocked?.kind === 'locked' ? `🔒 ${blocked.need} preb.` : formatEuro(toolCost(id));
+      b.querySelector('.t-cost').textContent = blocked?.kind === 'locked' ? `🔒 ${blocked.label ?? `${blocked.need} preb.`}` : formatEuro(toolCost(id));
       b.classList.toggle('unaffordable', blocked?.kind === 'money');
       b.classList.toggle('locked', blocked?.kind === 'locked');
     }
