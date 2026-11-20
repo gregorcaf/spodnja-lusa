@@ -11,7 +11,7 @@ import { policeDistricts, vandalismShare, policeSavedNews } from './services.js'
 
 const MIN_PROTESTERS = 5;
 // What can burn in a riot. Roads and the church are spared.
-export const BURNABLE = ['house', 'firehouse', 'hall', 'roundabout', 'inn', 'factory', 'flats', 'clinic', 'police', 'shop'];
+export const BURNABLE = ['house', 'firehouse', 'hall', 'roundabout', 'inn', 'factory', 'flats', 'tower', 'clinic', 'police', 'shop', 'kindergarten', 'school', 'highschool', 'faculty'];
 
 /** 'calm' | 'protest' | 'riot' */
 const RANK = { calm: 0, protest: 1, riot: 2 };

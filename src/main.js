@@ -5,7 +5,7 @@ import { CONFIG } from './config.js';
 import { Game } from './game/game.js';
 import { MapView } from './render/scene.js';
 import { DISTRICTS, districtOf, idx, plotAt, isOwned } from './game/map.js';
-import { TOOL_INFO, NO_ROAD } from './game/texts.js';
+import { TOOL_INFO, NO_ROAD, BUILD_ERRORS } from './game/texts.js';
 import { createTopbar } from './ui/topbar.js';
 import { createSidebar } from './ui/sidebar.js';
 import { createCitizenPopup } from './ui/citizenPopup.js';
@@ -24,7 +24,7 @@ import { MONTHS } from './game/texts.js';
 import { openModal } from './ui/modal.js';
 import { createBuildingPanel } from './ui/buildingPanel.js';
 import { hamletPrice, checkHamlet } from './game/hamlets.js';
-import { NEEDS_ROAD, hasRoadAccess } from './game/roads.js';
+import { NEEDS_ROAD, hasRoadAccess, roadPath } from './game/roads.js';
 import { formatEuro } from './game/util.js';
 import { seasonOf } from './game/seasons.js';
 import { startTutorial, tutorialActive } from './ui/tutorial.js';
@@ -52,7 +52,7 @@ const unlockSfx = () => {
 window.addEventListener('pointerdown', unlockSfx);
 window.addEventListener('keydown', unlockSfx);
 
-const LEVER_SOUNDS = { cousin: 'coin', praise: 'paper', neighbor: 'paper', snow: 'chime', party: 'fanfare', media: 'shush', minister: 'clink' };
+const LEVER_SOUNDS = { cousin: 'coin', praise: 'paper', neighbor: 'paper', snow: 'chime', party: 'fanfare', media: 'shush', minister: 'clink', holiday: 'fanfare', contest: 'bell', assembly: 'paper' };
 const ticker = new NewsTicker(document.getElementById('news'), {
   season: () => seasonOf(game.state.month),
   format: (text) => withMunicipality(text, game.state), // local news can name the municipality
@@ -162,16 +162,22 @@ const topbar = createTopbar(document.getElementById('topbar'), game);
 
 let tool = null;
 let hover = null;
+let paint = null; // { start, end } while a road is being dragged
 
 const sidebar = createSidebar(document.getElementById('sidebar'), game, {
   onToolChange(t) {
     tool = t;
+    // Roads are drawn by dragging; every other tool keeps left-drag for panning.
+    view.setPaintEnabled(t === 'road');
     renderHover();
   },
   onLever(id) {
     const res = game.useLever(id);
     toast(res.ok ? res.toast : res.reason, res.ok ? 'good' : 'error');
     sfx.play(res.ok ? LEVER_SOUNDS[id] : 'error');
+    // Holiday, contest or meeting: the mayor walks over to be seen there.
+    const g = game.state.gathering;
+    if (res.ok && g) view.mayor.goTo(view.tileWorld(g.x, g.y).add({ x: -0.3, y: 0, z: 0.3 }));
   },
   onNextMonth() {
     game.nextMonth();
@@ -316,7 +322,38 @@ view.onHover = (h) => {
   renderHover();
 };
 
+// Drag-built road: ghosts along the whole stretch, total cost in the tooltip.
+view.onPaint = (p) => {
+  paint = p;
+  renderHover();
+};
+view.onPaintEnd = ({ start, end }) => {
+  paint = null;
+  const res = game.actMany('road', roadPath(start, end));
+  if (!res.ok || res.noMoney) toast(res.reason || BUILD_ERRORS.occupied, 'error');
+  sfx.play(res.ok ? 'build' : 'error');
+  if (res.ok) sidebar.setTool(null);
+  renderHover();
+};
+
+function renderPaint() {
+  // Existing road along the way is simply skipped, so it gets no (red) ghost.
+  const tiles = roadPath(paint.start, paint.end)
+    .filter((t) => game.state.grid[idx(t.x, t.y)].type !== 'road')
+    .map((t) => ({ ...t, ok: game.canAct('road', t.x, t.y).ok }));
+  const fresh = tiles.filter((t) => t.ok).length;
+  view.preview.showMany('road', tiles);
+  const cost = fresh * CONFIG.buildings.road.cost;
+  const short = cost > game.state.budget;
+  const html =
+    `<div class="tt-title">${TOOL_INFO.road.icon} ${TOOL_INFO.road.name} · ${fresh} odsekov</div>` +
+    `<div class="${short ? 'tt-bad' : 'tt-good'}">${formatEuro(-cost)}${short ? ' · denarja zmanjka sredi ceste' : ''}</div>` +
+    '<div class="tt-muted">Spusti miško za gradnjo, desni klik prekliče.</div>';
+  showTooltip(html, hover?.clientX ?? 0, hover?.clientY ?? 0);
+}
+
 function renderHover() {
+  if (paint) return renderPaint();
   const h = hover;
   if (h?.mayor) {
     view.preview.hide();

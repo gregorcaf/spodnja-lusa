@@ -28,6 +28,11 @@ export class MapView {
     this.game = game;
     this.onHover = () => {};
     this.onClick = () => {};
+    // Drag-to-build (roads): onPaint({ start, end }) while dragging, onPaintEnd({ start, end }) on release.
+    this.onPaint = () => {};
+    this.onPaintEnd = () => {};
+    this.paintEnabled = false;
+    this.paint = null; // { start, end } while dragging
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -53,6 +58,7 @@ export class MapView {
     // Season and weather (a loaded game may also already be snowing or partying).
     this.applyWeather();
     if (state.party) this.effects.startParty(state.party);
+    if (state.gathering) this.effects.startGathering(state.gathering);
 
     const labelLayer = document.createElement('div');
     labelLayer.className = 'label-layer';
@@ -104,9 +110,30 @@ export class MapView {
       this.setHover(null, null);
     });
     dom.addEventListener('pointerdown', (e) => {
-      if (e.button === 0) this.downAt = { x: e.clientX, y: e.clientY };
+      // The right button cancels a drag in progress.
+      if (e.button === 2 && this.paint) {
+        this.paint = null;
+        this.onPaint(null);
+      }
+      if (e.button !== 0) return;
+      this.downAt = { x: e.clientX, y: e.clientY };
+      if (this.paintEnabled) {
+        this.pick();
+        if (this.hover.tile && this.hover.citizenId == null && !this.hover.mapEvent && !this.hover.krpan) {
+          this.paint = { start: this.hover.tile, end: this.hover.tile };
+          dom.setPointerCapture(e.pointerId); // a release outside the canvas still ends the drag
+          this.onPaint(this.paint);
+        }
+      }
     });
     dom.addEventListener('pointerup', (e) => {
+      if (e.button === 0 && this.paint) {
+        const p = this.paint;
+        this.paint = null;
+        this.downAt = null;
+        this.onPaintEnd(p);
+        return;
+      }
       if (e.button !== 0 || !this.downAt) return;
       const moved = Math.hypot(e.clientX - this.downAt.x, e.clientY - this.downAt.y);
       this.downAt = null;
@@ -135,6 +162,8 @@ export class MapView {
     // Citizens follow the game state on their own (party, protest); only effects need events.
     g.on('party-start', (site) => this.effects.startParty(site));
     g.on('party-end', () => this.effects.endParty());
+    g.on('gathering-start', (gathering) => this.effects.startGathering(gathering));
+    g.on('gathering-end', () => this.effects.endGathering());
     g.on('state', () => {
       this.refreshOverlay();
       this.labels.syncDistricts(this.game.state, formatEuro(hamletPrice(this.game.state)));
@@ -207,6 +236,16 @@ export class MapView {
     this.labels.setDistrictExtras(new Map(stats.map((s) => [s.district.id, `fovšija ${Math.round(s.envy)}`])));
   }
 
+  /** Turns drag-to-build on or off (the left button then draws instead of panning). */
+  setPaintEnabled(on) {
+    this.paintEnabled = on;
+    this.controls.leftPan = !on;
+    if (!on && this.paint) {
+      this.paint = null;
+      this.onPaint(null);
+    }
+  }
+
   /** Raycasts the pointer against citizens first, then the ground. */
   pick() {
     if (!this.pointer) return;
@@ -238,6 +277,10 @@ export class MapView {
     const sameTile = (prev.tile && tile && prev.tile.x === tile.x && prev.tile.y === tile.y) || (!prev.tile && !tile);
     const changed = !sameTile || prev.citizenId !== citizenId || prev.mapEvent !== mapEvent || prev.mayor !== mayor || prev.krpan !== krpan;
     this.hover = { tile, citizenId, mapEvent, mayor, krpan };
+    if (this.paint && tile && (tile.x !== this.paint.end.x || tile.y !== this.paint.end.y)) {
+      this.paint = { start: this.paint.start, end: tile };
+      this.onPaint(this.paint);
+    }
     if (changed || this.pointerMoved) {
       this.pointerMoved = false;
       this.onHover({
@@ -267,7 +310,7 @@ export class MapView {
     this.mayor.update(worldDt, Math.max(1, state.speed));
     this.vehicles.update(worldDt, Math.max(1, state.speed));
     this.krpan.update(worldDt, state);
-    this.effects.update(worldDt, this.time, this.game.state.party ? this.citizens.dancers() : [], this.game.state);
+    this.effects.update(worldDt, this.time, this.game.state.party ? this.citizens.dancers() : [], this.game.state, this.citizens.gatherers());
     this.labels.update(worldDt, this.game.state, this.citizens);
     this.labels.updateEventMarker(state.mapEvent ? this.game.describeMapEvent() : null, this.mapEvents.anchor);
     this.labels.updateRibbonMarkers(this.game.pendingRibbons());

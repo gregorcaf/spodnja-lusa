@@ -8,6 +8,8 @@
 //   'snow'        boolean         snow started/ended
 //   'party-start' { x, y }
 //   'party-end'   –
+//   'gathering-start' { kind, x, y, … }  holiday / firefighting contest / town-hall meeting on the map
+//   'gathering-end'   –
 //   'month'       report
 //   'unrest'      { level, prev } protests/riots started or ended
 //   'time'        –               speed changed (pause / 1× / 2× / 3×)
@@ -71,9 +73,11 @@ export function createState() {
     propaganda: 0,
     grid: createGrid(),
     citizens: createCitizens(),
-    leverMult: { praise: 1, neighbor: 1, party: 1, media: 1 },
+    leverMult: { cousin: 1, praise: 1, neighbor: 1, party: 1, media: 1, contest: 1 },
+    cousinThisMonth: 0, // tenders given to the cousin this month (capped)
     snow: false,
     party: null, // { x, y, remaining }
+    gathering: null, // holiday / contest / assembly on the map: { kind, x, y, remaining, win?, district? }
     unrest: 'calm', // 'calm' | 'protest' | 'riot'
     speed: 1, // 0 = paused
     lastSpeed: 1, // speed to return to when unpausing
@@ -161,6 +165,41 @@ export class Game extends Emitter {
     return res;
   }
 
+  /**
+   * Same tool on many tiles at once (drag-built roads). Tiles that can't take it are skipped;
+   * stops when the money runs out. One news item for the whole stretch.
+   * Returns { ok, built, reason, news }.
+   */
+  actMany(tool, tiles) {
+    let built = 0;
+    let firstNews = null;
+    let reason = '';
+    let noMoney = false;
+    for (const { x, y } of tiles) {
+      const res = performAction(this.state, tool, x, y);
+      if (!res.ok) {
+        // Already a road there is fine; no money ends the stretch.
+        if (res.noMoney) {
+          reason = res.reason;
+          noMoney = true;
+          break;
+        }
+        if (!reason && res.reason) reason = res.reason;
+        continue;
+      }
+      built += 1;
+      firstNews ??= res.news;
+      this.emit('tile', { x, y });
+    }
+    if (!built) return { ok: false, built, reason, noMoney };
+    const news = built > 1 ? `${firstNews} (${built} odsekov)` : firstNews;
+    this.refreshUnrest();
+    this.emit('news', news);
+    this.afterTilesChanged();
+    this.emit('state');
+    return { ok: true, built, reason, noMoney, news };
+  }
+
   /** Building wishes are fulfilled as soon as the right building appears. */
   afterTilesChanged() {
     const news = checkBuildWishes(this.state);
@@ -177,10 +216,23 @@ export class Game extends Emitter {
     if (!res.ok) return res;
     if (id === 'snow') this.emit('snow', true);
     if (id === 'party') this.emit('party-start', { x: this.state.party.x, y: this.state.party.y });
+    if (this.state.gathering && !this.state.gathering.started) {
+      this.state.gathering.started = true;
+      this.emit('gathering-start', this.state.gathering);
+    }
+    if (res.wish) this.emit('wishes', {});
     this.emit('news', res.news);
     this.refreshUnrest();
     this.emit('state');
     return res;
+  }
+
+  /** The holiday, contest or meeting is over: everyone goes home. */
+  endGathering() {
+    if (!this.state.gathering) return;
+    this.state.gathering = null;
+    this.emit('gathering-end');
+    this.emit('state'); // the levers it blocked are free again
   }
 
   endParty() {
@@ -515,6 +567,7 @@ export class Game extends Emitter {
       this.emit('news', PARTY_BROKEN_UP);
       this.endParty();
     }
+    if (level !== 'calm') this.endGathering();
   }
 
   setSpeed(speed) {
@@ -589,6 +642,11 @@ export class Game extends Emitter {
     if (p) {
       p.remaining -= dt;
       if (p.remaining <= 0) this.endParty();
+    }
+    const g = s.gathering;
+    if (g) {
+      g.remaining -= dt;
+      if (g.remaining <= 0) this.endGathering();
     }
   }
 

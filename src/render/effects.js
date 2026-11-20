@@ -1,4 +1,5 @@
-// Weather and party effects: snowfall with white landscape, party lights and music notes.
+// Weather and party effects: snowfall with white landscape, party lights and music notes,
+// plus the gatherings: holiday fireworks, the firefighting contest and the town-hall meeting.
 
 import * as THREE from 'three';
 import { setLandscape, FACTORY_CHIMNEY } from './models.js';
@@ -28,6 +29,10 @@ export class Effects {
     this.notes = [];
     this.noteTimer = 0;
     this.noteTextures = ['♪', '♫', '♬'].map(makeGlyphTexture);
+    this.complaintTextures = ['!', '?', '€', '#'].map(makeGlyphTexture);
+    this.sparkTex = makeBlobTexture('rgba(255,255,255,1)', 'rgba(255,255,255,0)');
+    this.gathering = null; // { kind, group, center, timer, age, total, win, trophy?, cloud? }
+    this.sparks = []; // fireworks, confetti and water drops
     this.fires = []; // { x, y, light, timer }
     this.factorySmokeTimer = 0;
     this.particles = []; // flames and smoke
@@ -173,8 +178,165 @@ export class Effects {
     }
   }
 
-  spawnNote(at) {
-    const tex = this.noteTextures[Math.floor(Math.random() * this.noteTextures.length)];
+  /** Holiday, firefighting contest or town-hall meeting: props on the map until it ends. */
+  startGathering(g) {
+    this.endGathering();
+    const center = tileToWorld(g.x, g.y);
+    const group = new THREE.Group();
+    group.position.copy(center);
+    const mat = (c) => new THREE.MeshLambertMaterial({ color: c });
+    const boxAt = (w, h, d, m, x, y, z) => {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+      b.position.set(x, y + h / 2, z);
+      b.castShadow = true;
+      group.add(b);
+      return b;
+    };
+
+    if (g.kind === 'holiday') {
+      // Four poles with white-blue-red bunting around the square.
+      const R = 1.45;
+      const pole = mat('#6b4a2b');
+      for (let i = 0; i < 4; i++) {
+        const a = Math.PI / 4 + (i * Math.PI) / 2;
+        boxAt(0.035, 0.85, 0.035, pole, Math.cos(a) * R, 0, Math.sin(a) * R);
+      }
+      const flagGeo = new THREE.ConeGeometry(0.05, 0.1, 3);
+      const colors = ['#ffffff', '#2456b4', '#d8262e'].map((c) => new THREE.MeshBasicMaterial({ color: c }));
+      this.flags = [];
+      for (let i = 0; i < 36; i++) {
+        const a = (i / 36) * Math.PI * 2;
+        const flag = new THREE.Mesh(flagGeo, colors[i % 3]);
+        flag.rotation.x = Math.PI;
+        flag.position.set(Math.cos(a) * R, 0.8 - Math.abs(Math.sin(a * 2)) * 0.12, Math.sin(a) * R);
+        group.add(flag);
+        this.flags.push(flag);
+      }
+    } else if (g.kind === 'contest') {
+      // Target board on two posts, a hose reel and two cones.
+      const white = mat('#f4f1ea');
+      const red = mat('#d12f25');
+      boxAt(0.03, 0.5, 0.03, mat('#7a5532'), 0.95, 0, -0.2);
+      boxAt(0.03, 0.5, 0.03, mat('#7a5532'), 0.95, 0, 0.2);
+      this.target = boxAt(0.05, 0.3, 0.42, white, 0.95, 0.35, 0);
+      boxAt(0.055, 0.12, 0.14, red, 0.95, 0.44, 0);
+      for (const z of [-0.6, 0.6]) {
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.14, 8), mat('#ff7a1a'));
+        cone.position.set(0.3, 0.07, z);
+        group.add(cone);
+      }
+    } else {
+      // Town-hall meeting: a lectern and two benches.
+      const wood = mat('#8b6a45');
+      boxAt(0.14, 0.26, 0.12, wood, 0, 0, 0);
+      boxAt(0.18, 0.03, 0.14, wood, 0, 0.26, 0);
+      for (const z of [-0.3, 0.3]) boxAt(0.5, 0.06, 0.1, wood, 0.32, 0.1, z);
+    }
+
+    this.scene.add(group);
+    this.gathering = { kind: g.kind, group, center, timer: 0.5, age: 0, total: g.remaining, win: g.win };
+  }
+
+  endGathering() {
+    if (!this.gathering) return;
+    this.scene.remove(this.gathering.group);
+    if (this.gathering.trophy) this.scene.remove(this.gathering.trophy);
+    this.gathering = null;
+  }
+
+  /** A burst of coloured sparks (fireworks high up, confetti low down). */
+  burst(at, count, speed, colors) {
+    for (let i = 0; i < count; i++) {
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.sparkTex, color: colors[i % colors.length], transparent: true, depthWrite: false }));
+      s.scale.setScalar(0.1);
+      s.position.copy(at);
+      const a = Math.random() * Math.PI * 2;
+      const up = Math.random() * 2 - 1;
+      const v = speed * (0.6 + Math.random() * 0.4);
+      s.userData = { life: 0, max: 1.4, vel: new THREE.Vector3(Math.cos(a) * v, up * v, Math.sin(a) * v), gravity: 1.2 };
+      this.scene.add(s);
+      this.sparks.push(s);
+    }
+  }
+
+  /** One drop of the firefighters' water jet, from the hose towards the target. */
+  waterDrop(from, to) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.sparkTex, color: '#7cc7ef', transparent: true, depthWrite: false }));
+    s.scale.setScalar(0.07);
+    s.position.copy(from);
+    const t = 0.7; // flight time
+    const gravity = 4.4;
+    // Projectile that lands exactly on the target after t seconds.
+    const vel = new THREE.Vector3((to.x - from.x) / t, (to.y - from.y + 0.5 * gravity * t * t) / t, (to.z - from.z) / t);
+    s.userData = { life: 0, max: t, vel, gravity };
+    this.scene.add(s);
+    this.sparks.push(s);
+  }
+
+  updateGathering(dt, time, crowd) {
+    const g = this.gathering;
+    if (!g) return;
+    g.age += dt;
+    g.timer -= dt;
+    const c = g.center;
+    if (g.kind === 'holiday') {
+      for (const [i, f] of this.flags.entries()) f.rotation.z = Math.sin(time * 4 + i) * 0.3;
+      if (g.timer <= 0) {
+        // Fireworks over the church.
+        const at = new THREE.Vector3(c.x + (Math.random() - 0.5) * 3, 2.6 + Math.random() * 1.2, c.z + (Math.random() - 0.5) * 3);
+        const palette = [['#ff4d4d', '#ffd93d'], ['#4dd2ff', '#ffffff'], ['#7dff6b', '#ff7bd5'], ['#ffffff', '#2456b4', '#d8262e']];
+        this.burst(at, 26, 1.6, palette[Math.floor(Math.random() * palette.length)]);
+        g.timer = 0.45 + Math.random() * 0.5;
+      }
+    } else if (g.kind === 'contest') {
+      const decided = g.age > g.total * 0.65;
+      if (!decided && g.timer <= 0) {
+        // Two hoses spray at the target board.
+        for (const z of [-0.15, 0.15]) {
+          this.waterDrop(new THREE.Vector3(c.x - 0.1, 0.25, c.z + z * 2), new THREE.Vector3(c.x + 0.92, 0.5, c.z + z));
+        }
+        g.timer = 0.04;
+      }
+      if (decided && !g.trophy) {
+        // The result: a golden cup with confetti, or a grey cloud of disappointment.
+        if (g.win) {
+          const gold = new THREE.MeshLambertMaterial({ color: '#e3b84a', emissive: '#3a2a05' });
+          const cup = new THREE.Group();
+          const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.07, 0.2, 12), gold);
+          bowl.position.y = 0.2;
+          const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.1, 6), gold);
+          stem.position.y = 0.05;
+          const base = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.03, 0.16), gold);
+          cup.add(bowl, stem, base);
+          cup.position.set(c.x, 1.0, c.z);
+          g.trophy = cup;
+          this.burst(new THREE.Vector3(c.x, 1.3, c.z), 40, 1.2, ['#ffd93d', '#ff4d4d', '#4dd2ff', '#7dff6b']);
+        } else {
+          const cloud = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.sparkTex, color: '#c3c8ce', transparent: true, opacity: 0.85, depthWrite: false }));
+          cloud.scale.set(1.0, 0.5, 1);
+          cloud.position.set(c.x, 1.6, c.z);
+          g.trophy = cloud;
+        }
+        this.scene.add(g.trophy);
+      }
+      if (g.trophy) {
+        if (g.win) {
+          g.trophy.rotation.y += dt * 2;
+          g.trophy.position.y = 1.0 + Math.min(0.6, (g.age - g.total * 0.65) * 0.5) + Math.sin(time * 3) * 0.04;
+        } else {
+          g.trophy.position.x = c.x + Math.sin(time * 1.5) * 0.15;
+        }
+      }
+    } else if (crowd.length && g.timer <= 0) {
+      // Complaints rise from the meeting.
+      const tex = this.complaintTextures[Math.floor(Math.random() * this.complaintTextures.length)];
+      this.spawnNote(crowd[Math.floor(Math.random() * crowd.length)], tex);
+      g.timer = 0.35;
+    }
+  }
+
+  spawnNote(at, texture = null) {
+    const tex = texture || this.noteTextures[Math.floor(Math.random() * this.noteTextures.length)];
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
     sprite.scale.setScalar(0.28);
     sprite.position.set(at.x + (Math.random() - 0.5) * 0.2, 0.5, at.z + (Math.random() - 0.5) * 0.2);
@@ -224,7 +386,21 @@ export class Effects {
     }
   }
 
-  update(dt, time, dancers, state) {
+  update(dt, time, dancers, state, crowd = []) {
+    this.updateGathering(dt, time, crowd);
+    for (let i = this.sparks.length - 1; i >= 0; i--) {
+      const s = this.sparks[i];
+      const u = s.userData;
+      u.life += dt;
+      u.vel.y -= u.gravity * dt;
+      s.position.addScaledVector(u.vel, dt);
+      s.material.opacity = Math.max(0, 1 - u.life / u.max);
+      if (u.life > u.max) {
+        this.scene.remove(s);
+        s.material.dispose();
+        this.sparks.splice(i, 1);
+      }
+    }
     this.syncRiot(state);
     this.syncEventFire(state);
     this.factorySmoke(dt, state);

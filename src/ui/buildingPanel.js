@@ -7,6 +7,7 @@ import { BUILDINGS, TOOL_INFO, NO_ROAD } from '../game/texts.js';
 import { upgradesFor, checkUpgrade } from '../game/upgrades.js';
 import { describeEffect } from '../game/effects.js';
 import { taxRate } from '../game/taxes.js';
+import { householdsPer } from '../game/population.js';
 import { formatEuro } from '../game/util.js';
 import { NEEDS_ROAD, hasRoadAccess } from '../game/roads.js';
 import { escapeHtml } from './tooltip.js';
@@ -34,11 +35,8 @@ export function createBuildingPanel(game, { onBuy, onRibbon }) {
     if (tile.build?.phase === 'opening') status += `<div class="bp-status ribbon"><button class="bp-ribbon">✂️ Prereži trak</button></div>`;
 
     const money = [];
-    if (tile.type === 'house') money.push(`👥 ${CONFIG.population.perHousehold} · ${formatEuro(taxRate(s), { sign: true })}/mes`);
-    if (tile.type === 'flats') {
-      const n = CONFIG.population.flatsHouseholds;
-      money.push(`👥 ${n * CONFIG.population.perHousehold} · ${formatEuro(taxRate(s) * n, { sign: true })}/mes`);
-    }
+    const homes = householdsPer(tile.type);
+    if (homes) money.push(`👥 ${homes * CONFIG.population.perHousehold} · ${formatEuro(taxRate(s) * homes, { sign: true })}/mes`);
     if (b?.income) money.push(`${formatEuro(b.income, { sign: true })}/mes`);
     if (b?.upkeep) money.push(`${formatEuro(-b.upkeep)}/mes`);
 

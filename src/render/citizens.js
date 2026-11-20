@@ -312,6 +312,9 @@ export class CitizenLayer {
   desiredMode(c, state) {
     if (state.party) return 'party';
     if (c.protesting) return 'protest';
+    // Holiday and contest: everyone comes. The town-hall meeting: only that district.
+    const g = state.gathering;
+    if (g && (g.kind !== 'assembly' || c.home === g.district)) return 'gather';
     return 'wander';
   }
 
@@ -328,6 +331,15 @@ export class CitizenLayer {
       const angle = (f.id / this.figures.length) * Math.PI * 2;
       const radius = 0.85 + (f.id % 3) * 0.22;
       f.spot = new THREE.Vector3(site.x + Math.cos(angle) * radius, 0, site.z + Math.sin(angle) * radius);
+      this.routeTo(f, site, f.spot);
+    } else if (mode === 'gather') {
+      const g = state.gathering;
+      const site = tileToWorld(g.x, g.y);
+      const angle = (f.id / this.figures.length) * Math.PI * 2 + (g.kind === 'assembly' ? f.id : 0);
+      // Leave room in the middle for the stage, the target board or the lectern.
+      const radius = (g.kind === 'assembly' ? 0.55 : 1.0) + (f.id % 3) * 0.2;
+      f.spot = new THREE.Vector3(site.x + Math.cos(angle) * radius, 0, site.z + Math.sin(angle) * radius);
+      f.center = site;
       this.routeTo(f, site, f.spot);
     } else if (mode === 'protest') {
       // Everyone gathers on the main crossroads next to the church.
@@ -364,6 +376,11 @@ export class CitizenLayer {
     return this.figures.filter((f) => f.mode === 'party' && !f.path.length).map((f) => f.pos);
   }
 
+  /** Positions of figures standing at the holiday, contest or meeting (for cheers and complaints). */
+  gatherers() {
+    return this.figures.filter((f) => f.mode === 'gather' && !f.path.length).map((f) => f.pos);
+  }
+
   /** Ids of figures currently standing in the protest. */
   protesters() {
     return this.figures.filter((f) => f.mode === 'protest' && !f.path.length).map((f) => f.id);
@@ -389,7 +406,12 @@ export class CitizenLayer {
       if (near && !f.fleeing) f.path.length = Math.min(f.path.length, 1);
       f.fleeing = !!near;
       const want = this.desiredMode(c, state);
-      if (want !== f.mode) this.setMode(f, want, state);
+      // A new gathering somewhere else also counts as a change of plan.
+      const gatherKey = want === 'gather' ? `${state.gathering.kind}:${state.gathering.x},${state.gathering.y}` : null;
+      if (want !== f.mode || gatherKey !== f.gatherKey) {
+        f.gatherKey = gatherKey;
+        this.setMode(f, want, state);
+      }
 
       f.bodyMat.color.copy(MOOD_COLORS[moodOf(c, state)]);
       // Rioters flash red.
@@ -437,6 +459,14 @@ export class CitizenLayer {
         // Dance: hop and spin.
         f.inner.position.y = Math.abs(Math.sin(this.time * 7 + f.phase)) * 0.12;
         f.inner.rotation.y += dt * 4;
+      } else if (f.mode === 'gather') {
+        // Face the middle: wave at the holiday, jump for the firefighters, fidget at the meeting.
+        const g = state.gathering;
+        if (f.center) f.group.rotation.y = Math.atan2(f.center.x - f.pos.x, f.center.z - f.pos.z);
+        const kind = g?.kind;
+        const beat = this.time * (kind === 'contest' ? 8 : kind === 'holiday' ? 5 : 3) + f.phase;
+        f.inner.position.y = Math.abs(Math.sin(beat)) * (kind === 'contest' ? 0.09 : kind === 'holiday' ? 0.05 : 0.015);
+        f.inner.rotation.z = Math.sin(beat) * (kind === 'assembly' ? 0.15 : 0.08);
       } else if (f.mode === 'protest') {
         // Face the church, wave the sign; rioters jump around angrily.
         f.group.rotation.y = Math.atan2(CHURCH_POS.x - f.pos.x, CHURCH_POS.z - f.pos.z);

@@ -22,6 +22,7 @@ export class CameraController {
     this.panning = false;
     this.lastPointer = null;
     this.press = null; // { x, y, button } while a button is held on the map
+    this.leftPan = true; // false while a drag-to-build tool owns the left button
 
     dom.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
     dom.addEventListener('pointerdown', (e) => this.onPointerDown(e));
@@ -65,7 +66,7 @@ export class CameraController {
   }
 
   onPointerMove(e) {
-    if (this.press && !this.panning && Math.hypot(e.clientX - this.press.x, e.clientY - this.press.y) > DRAG_THRESHOLD) {
+    if (this.press && !this.panning && (this.press.button !== 0 || this.leftPan) && Math.hypot(e.clientX - this.press.x, e.clientY - this.press.y) > DRAG_THRESHOLD) {
       this.startPan();
     }
     if (!this.panning) return;

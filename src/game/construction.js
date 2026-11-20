@@ -22,11 +22,16 @@ const GENITIVE = {
   inn: 'gostilne',
   factory: 'tovarne',
   flats: 'bloka',
+  tower: 'stolpnice',
   clinic: 'zdravstvenega doma',
   police: 'policijske postaje',
   shop: 'trgovine',
   vineyard: 'vinograda',
   cemetery: 'pokopališča',
+  kindergarten: 'vrtca',
+  school: 'osnovne šole',
+  highschool: 'srednje šole',
+  faculty: 'fakultete',
 };
 
 /** Puts scaffolding on a freshly built tile (types without a construction time open at once). */

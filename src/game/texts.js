@@ -26,17 +26,22 @@ export const BUILDINGS = {
   inn: { name: 'Gostilna', what: 'gostilno', short: 'gostilna' },
   factory: { name: 'Tovarna', what: 'tovarno', short: 'tovarna' },
   flats: { name: 'Blok', what: 'blok', short: 'blok' },
+  tower: { name: 'Stolpnica', what: 'stolpnico', short: 'stolpnica' },
   clinic: { name: 'Zdravstveni dom', what: 'zdravstveni dom', short: 'zdravstveni dom' },
   police: { name: 'Policijska postaja', what: 'policijsko postajo', short: 'policija' },
   shop: { name: 'Trgovina', what: 'trgovino', short: 'trgovina' },
   vineyard: { name: 'Vinograd', what: 'vinograd', short: 'vinograd' },
   cemetery: { name: 'Pokopališče', what: 'pokopališče', short: 'pokopališče' },
+  kindergarten: { name: 'Vrtec', what: 'vrtec', short: 'vrtec' },
+  school: { name: 'Osnovna šola', what: 'osnovno šolo', short: 'osnovna šola' },
+  highschool: { name: 'Srednja šola', what: 'srednjo šolo', short: 'srednja šola' },
+  faculty: { name: 'Fakulteta', what: 'fakulteto', short: 'fakulteta' },
   church: { name: 'Cerkev', what: 'cerkev', short: 'cerkev' },
 };
 
 export const TOOL_INFO = {
   inspect: { name: 'Na teren', icon: '🎩', note: 'ljudje · stavbe · sprehod' },
-  road: { name: 'Cesta', icon: '🛣️', note: '' },
+  road: { name: 'Cesta', icon: '🛣️', note: 'povleci' },
   house: { name: 'Hiša', icon: '🏠', note: 'davek' },
   roundabout: { name: 'Krožišče', icon: '⭕', note: 'na cesto' },
   firehouse: { name: 'Gasilski dom', icon: '🚒', note: '' },
@@ -44,11 +49,16 @@ export const TOOL_INFO = {
   inn: { name: 'Gostilna', icon: '🍺', note: '' },
   factory: { name: 'Tovarna', icon: '🏭', note: 'smrdi' },
   flats: { name: 'Blok', icon: '🏢', note: '5 gospodinjstev' },
+  tower: { name: 'Stolpnica', icon: '🏙️', note: '12 gospodinjstev' },
   clinic: { name: 'Zdravstveni dom', label: 'Zdr. dom', icon: '🏥', note: 'malo fovšije' },
   police: { name: 'Policijska postaja', label: 'Policija', icon: '👮', note: 'manj škode' },
   shop: { name: 'Trgovina', icon: '🛒', note: '' },
   vineyard: { name: 'Vinograd', icon: '🍇', note: 'trgatev jeseni' },
   cemetery: { name: 'Pokopališče', icon: '⚰️', note: 'nihče ga ne želi' },
+  kindergarten: { name: 'Vrtec', icon: '🧸', note: '1. stopnja' },
+  school: { name: 'Osnovna šola', label: 'OŠ', icon: '🏫', note: '2. stopnja' },
+  highschool: { name: 'Srednja šola', label: 'Srednja', icon: '📚', note: '3. stopnja' },
+  faculty: { name: 'Fakulteta', icon: '🎓', note: '4. stopnja' },
   demolish: { name: 'Podiranje', icon: '🚜', note: 'cerkve ne' },
 };
 
@@ -353,6 +363,10 @@ export const BUILD_NEWS = {
     '{Loc} so odprli gostilno. Prvi dan so prodali 300 malic in pojedli vse zaloge zaseke.',
     'Nova gostilna {loc}: kuhinja do 22. ure, debate o politiki do treh zjutraj.',
   ],
+  tower: [
+    '{Loc} so zgradili stolpnico. Z vrha se vidi do Zgornjih Žlamp. Žal tudi obratno.',
+    'Nova stolpnica {loc}: 12 stanovanj, eno dvigalo in hišni svet, ki se ne bo nikoli zedinil.',
+  ],
   flats: [
     '{Loc} je zrasel blok. Sosedje so dobili senco, parkirišče pa dvajset novih prepirov.',
     'Novi blok {loc}: arhitekt pravi, da gre za »sodobno interpretacijo socialističnega realizma«.',
@@ -381,6 +395,22 @@ export const BUILD_NEWS = {
     '{Loc} so uredili pokopališče. Domačini so jezni, vsi ostali pa so si oddahnili.',
     'Novo pokopališče {loc}. Upokojenci so si takoj ogledali najlepše parcele.',
   ],
+  kindergarten: [
+    '{Loc} so odprli vrtec. Čakalna vrsta za vpis je daljša od čakalne vrste pri zobozdravniku.',
+    'Nov vrtec {loc}: 24 otrok, 2 vzgojiteljici in 40 staršev z mnenjem.',
+  ],
+  school: [
+    '{Loc} so odprli osnovno šolo. Starši so na prvem roditeljskem sestanku izvolili tri predsednike.',
+    'Nova osnovna šola {loc}. Telovadnica je večja od zbornice, kar pove vse.',
+  ],
+  highschool: [
+    '{Loc} so odprli srednjo šolo. Avtobusna postaja pred njo je že dobila prve grafite.',
+    'Nova srednja šola {loc}. Mladina ostaja doma – vsaj do mature.',
+  ],
+  faculty: [
+    '{Loc} so odprli fakulteto. Občina ima zdaj več doktorjev znanosti kot traktorjev.',
+    'Nova fakulteta {loc}. Prvi diplomant je napisal nalogo o županu. Ocena: 10.',
+  ],
   hall: [
     '{Loc} so odprli večnamensko dvorano. Namen še iščejo.',
     'Večnamenska dvorana {loc} bo gostila šport, kulturo in predvsem predvolilni shod.',
@@ -402,11 +432,16 @@ export const BUILDING_GENITIVE = {
   inn: 'gostilne',
   factory: 'tovarne',
   flats: 'bloka',
+  tower: 'stolpnice',
   clinic: 'zdravstvenega doma',
   police: 'policijske postaje',
   shop: 'trgovine',
   vineyard: 'vinograda',
   cemetery: 'pokopališča',
+  kindergarten: 'vrtca',
+  school: 'osnovne šole',
+  highschool: 'srednje šole',
+  faculty: 'fakultete',
 };
 
 export const NO_MONEY = [
@@ -419,6 +454,7 @@ export const NO_MONEY = [
 export const NO_ROAD = {
   house: 'Do stavbe ni ceste, nihče se ne vseli.',
   flats: 'Do stavbe ni ceste, nihče se ne vseli.',
+  tower: 'Do stavbe ni ceste, nihče se ne vseli.',
   inn: 'Do stavbe ni ceste, gostov ni.',
   factory: 'Do stavbe ni ceste, delavcev ni.',
   firehouse: 'Do stavbe ni ceste, gasilcev ni.',
@@ -426,6 +462,10 @@ export const NO_ROAD = {
   clinic: 'Do stavbe ni ceste, zdravnika ni.',
   police: 'Do stavbe ni ceste, policistov ni.',
   shop: 'Do stavbe ni ceste, kupcev ni.',
+  kindergarten: 'Do stavbe ni ceste, otrok ni.',
+  school: 'Do stavbe ni ceste, učencev ni.',
+  highschool: 'Do stavbe ni ceste, dijakov ni.',
+  faculty: 'Do stavbe ni ceste, študentov ni.',
 };
 
 export const BUILD_ERRORS = {
@@ -437,6 +477,8 @@ export const BUILD_ERRORS = {
   notOwned: 'To zemljišče še ni naše. Najprej ga kupi – klikni nanj, ko nimaš izbranega orodja.',
   factoryPopulation: 'Za tovarno potrebuješ vsaj {min} prebivalcev, zdaj jih je {now}. Kdo bo pa delal? Bratranec?',
   clinicPopulation: 'Za zdravstveni dom potrebuješ vsaj {min} prebivalcev, zdaj jih je {now}. Za tako malo ljudi noben zdravnik ne pride.',
+  eduPopulation: '{what} potrebuje vsaj {min} prebivalcev, zdaj jih je {now}.',
+  eduNeedsPrev: '{Name} brez {prevGen}? Najprej zgradi {prev}.',
   demolishChurch: 'Cerkve ni mogoče podreti. Župnik ima boljše zveze kot ti.',
   demolishGrass: 'Travnika ne moreš podreti. Lahko ga kvečjemu pokosiš, ampak ne v nedeljo.',
 };
@@ -495,6 +537,47 @@ export const LEVER_TEXTS = {
       'Na veselici so prodali 400 klobas in 900 piv. Gasilska cisterna je bila uporabljena za hlajenje.',
     ],
     toast: 'Veselica pri gasilskem domu! Vsi gremo plesat.',
+  },
+  holiday: {
+    name: 'Krajevni praznik',
+    label: 'Praznik',
+    icon: '🎊',
+    desc: 'Enkrat na leto: vsi praznujejo skupaj.',
+    cooldown: 'Praznik je že bil',
+    news: [
+      'Krajevni praznik: župan je imel govor, godba je igrala, vsak zaselek je trdil, da je bil njegov šotor najlepši.',
+      'Na krajevnem prazniku so podelili 14 priznanj. Prejemniki so bili po naključju vsi iz odbora za priznanja.',
+    ],
+    toast: 'Krajevni praznik! Vsi so ena velika družina – do ponedeljka.',
+  },
+  contest: {
+    name: 'Gasilsko tekmovanje',
+    label: 'Gasilska tekma',
+    icon: '🏆',
+    desc: 'Tekma z Zgornjimi Žlampami: fovšija gre čez mejo občine.',
+    win: [
+      'Naši gasilci so na tekmovanju premagali Zgornje Žlampe. Pokal je večji od cisterne.',
+      'Zmaga! Desetina iz naše občine je bila hitrejša za 0,3 sekunde. Žlampe zahtevajo ponovno štetje.',
+    ],
+    lose: [
+      'Gasilci so tekmo izgubili proti Zgornjim Žlampam. Krivi so sodniki, veter in nova cev.',
+      'Poraz na gasilskem tekmovanju. Žlampe so slavile, pri nas pa vsi skupaj jezni nanje.',
+    ],
+    brawl: 'Po tekmi je prišlo do pretepa z ekipo iz Žlamp. Škoda: {cost}, fotografije: na Facebooku.',
+    toastWin: 'Zmaga nad Žlampami! Fovšija −{n}, ponos gor.',
+    toastLose: 'Poraz proti Žlampam. Fovšija vseeno −{n}: zdaj so vsi jezni nanje.',
+  },
+  assembly: {
+    name: 'Zbor krajanov',
+    label: 'Zbor krajanov',
+    icon: '🗣️',
+    desc: 'Župan posluša najbolj fovšljiv konec občine.',
+    cooldown: 'Zbor krajanov je bil pred kratkim',
+    news: [
+      'Zbor krajanov {loc}: tri ure pritožb, dve kavi in en sklep, da se bo »zadeva preučila«.',
+      'Župan je {loc} poslušal krajane. Najdaljši govor je imel nekdo, ki tam sploh ne živi.',
+    ],
+    toast: 'Zbor krajanov {loc}: fovšija tam pade, nekdo pa že ima željo.',
   },
   minister: {
     name: 'Kosilo z ministrom',
@@ -567,10 +650,15 @@ export const BURN_NEWS = {
   roundabout: 'Protestniki so {loc} prevrnili kip v krožišču. Ostala je le cesta in pločevinka barve.',
   inn: 'Med neredi je {loc} zgorela gostilna. Gostje so vztrajali do zadnjega piva.',
   factory: 'Med neredi je {loc} zgorela tovarna. Sosedje pravijo, da smrdi enako kot prej.',
+  tower: 'Med neredi je {loc} gorela stolpnica. Gasilci so prvič uporabili lestev do konca.',
   flats: 'Med neredi je {loc} gorel blok. Stanovalci so se prvič v zgodovini vsi pozdravili – na parkirišču.',
   clinic: 'Med neredi je {loc} gorel zdravstveni dom. Čakalna vrsta je ostala nepoškodovana.',
   police: 'Med neredi je {loc} gorela policijska postaja. Policista sta požar zapisala v zapisnik.',
   shop: 'Med neredi je {loc} zgorela trgovina. Prej so jo še na hitro izpraznili – brez blagajne.',
+  kindergarten: 'Med neredi je {loc} gorel vrtec. Otroci so požar narisali bolje kot novinarji.',
+  school: 'Med neredi je {loc} gorela osnovna šola. Učenci so prvič v zgodovini želeli v šolo.',
+  highschool: 'Med neredi je {loc} gorela srednja šola. Dijaki pravijo, da niso bili oni. Tokrat res.',
+  faculty: 'Med neredi je {loc} gorela fakulteta. Rektor je napovedal simpozij o požaru.',
 };
 
 /** News from the public buildings (services.js). */
@@ -623,6 +711,10 @@ export const LEVER_ERRORS = {
   firehouseNoRoad: 'Do gasilskega doma ni ceste. Gasilci ne bodo nosili šotora čez travnik.',
   ministerPending: 'Minister še prebavlja zadnje kosilo. Počakaj, da se odloči.',
   noFirehouse: 'Brez gasilskega doma ni veselice. Najprej dom, potem šotor.',
+  contestNoFirehouse: 'Brez gasilskega doma ni gasilske desetine. Žlampe bi se smejale.',
+  cousinLimit: 'Ta mesec je bratranec dobil že {n} razpisa. Še eden in bi postal sumljiv celo njegovi mami.',
+  gatheringActive: 'Občani so že zbrani drugje. Ena prireditev naenkrat, prosim.',
+  holidayUnrest: 'Med protesti ni praznika. Godba ne igra pred transparenti.',
 };
 
 export const MOOD_LABELS = {

@@ -195,7 +195,7 @@ export class World {
       // Under construction: scaffolding around it. Finished but not opened: a ribbon in front.
       const wrap = new THREE.Group();
       wrap.add(obj);
-      wrap.add(tile.build.phase === 'construction' ? createScaffolding(tile.type === 'house' ? 0.7 : 0.85) : createRibbon());
+      wrap.add(tile.build.phase === 'construction' ? createScaffolding(tile.type === 'house' ? 0.7 : tile.type === 'tower' ? 1.6 : 0.85) : createRibbon());
       obj = wrap;
     }
     if (obj) {

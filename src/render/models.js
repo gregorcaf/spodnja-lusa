@@ -294,24 +294,43 @@ const FLATS_WALL = material('#d9d3c4');
 const FLATS_ROOF = material('#6d7178', SNOW);
 const BALCONY = material('#b8b2a2');
 
-/** Block of flats: five storeys, a grid of windows, balconies and an entrance. */
-function flats(variant) {
+/**
+ * Apartment building: a grid of windows on the front and back (and on the sides when `sideWindows`),
+ * balconies at the front, and an entrance.
+ */
+function apartments({ w, d, floors, cols, sideCols = 0 }) {
   const g = new THREE.Group();
-  const w = 0.82;
-  const d = 0.6;
-  const h = 1.15;
+  const h = 0.15 + floors * 0.2;
   g.add(box(w, h, d, FLATS_WALL));
   g.add(box(w + 0.04, 0.05, d + 0.04, FLATS_ROOF, 0, h, 0));
-  for (let floor = 0; floor < 5; floor++) {
+  const step = (w - 0.2) / Math.max(1, cols - 1);
+  for (let floor = 0; floor < floors; floor++) {
     const y = 0.12 + floor * 0.2;
-    for (let col = 0; col < 4; col++) {
-      const x = -0.3 + col * 0.2;
-      g.add(box(0.1, 0.09, 0.02, M.window, x, y, d / 2 + 0.005));
-      if (floor > 0 && col % 2 === 0) g.add(box(0.16, 0.025, 0.07, BALCONY, x + 0.1, y - 0.03, d / 2 + 0.035));
+    for (let col = 0; col < cols; col++) {
+      const x = -(w - 0.2) / 2 + col * step;
+      for (const side of [1, -1]) g.add(box(0.1, 0.09, 0.02, M.window, x, y, side * (d / 2 + 0.005)));
+      if (floor > 0 && col % 2 === 0) g.add(box(0.16, 0.025, 0.07, BALCONY, x + step / 2, y - 0.03, d / 2 + 0.035));
+    }
+    for (let col = 0; col < sideCols; col++) {
+      const z = -(d - 0.2) / 2 + col * ((d - 0.2) / Math.max(1, sideCols - 1));
+      for (const side of [1, -1]) g.add(box(0.02, 0.09, 0.1, M.window, side * (w / 2 + 0.005), y, z));
     }
   }
   g.add(box(0.14, 0.12, 0.02, M.door, 0, 0, d / 2 + 0.006));
+  return g;
+}
+
+/** Block of flats: five storeys, windows front and back, balconies and an entrance. */
+function flats(variant) {
+  const g = apartments({ w: 0.82, d: 0.6, floors: 5, cols: 4 });
   g.rotation.y = (variant % 2) * Math.PI; // facing the street one way or the other
+  return g;
+}
+
+/** Stolpnica: a ten-storey tower with windows on all four sides. */
+function tower(variant) {
+  const g = apartments({ w: 0.66, d: 0.66, floors: 10, cols: 3, sideCols: 3 });
+  g.rotation.y = (variant % 4) * (Math.PI / 2);
   return g;
 }
 
@@ -436,7 +455,79 @@ function cemetery() {
   return g;
 }
 
-const BUILDERS = { road, house, church, roundabout, firehouse, hall, inn, factory, flats, clinic, police, shop, vineyard, cemetery };
+// --- Education ------------------------------------------------------------------
+
+const EDU = {
+  kinderWall: material('#ffe08a'),
+  kinderRoof: material('#e0644f', SNOW),
+  slide: material('#3fa3d8'),
+  schoolWall: material('#efe6d2'),
+  schoolRoof: material('#7d4a36', SNOW),
+  clock: material('#ffffff'),
+  hsWall: material('#cfdbe6'),
+  hsRoof: material('#55606b', SNOW),
+  facWall: material('#e9e4da'),
+  column: material('#fbf8f2'),
+  facRoof: material('#8a8f96', SNOW),
+  lawn: material('#5f9b48', '#eef1f3'),
+};
+
+/** Vrtec: a low yellow building with a red gable and a slide in the yard. */
+function kindergarten(variant) {
+  const g = new THREE.Group();
+  g.add(box(0.6, 0.26, 0.46, EDU.kinderWall, -0.08, 0, -0.12));
+  g.add(gable(0.66, 0.18, 0.52, EDU.kinderRoof, 0.26).translateX(-0.08).translateZ(-0.12));
+  for (const x of [-0.26, 0.1]) g.add(box(0.12, 0.1, 0.02, M.window, x, 0.09, 0.115));
+  g.add(box(0.1, 0.18, 0.02, M.door, -0.08, 0, 0.115));
+  // Slide: ladder post + tilted chute.
+  g.add(box(0.04, 0.2, 0.04, EDU.slide, 0.36, 0, 0.18));
+  const chute = box(0.08, 0.02, 0.28, EDU.slide, 0.36, 0.1, 0.32);
+  chute.rotation.x = 0.6;
+  g.add(chute);
+  g.rotation.y = (variant % 2) * (Math.PI / 2);
+  return g;
+}
+
+/** Osnovna šola: a long two-storey building with a clock over the entrance. */
+function school() {
+  const g = new THREE.Group();
+  g.add(box(0.9, 0.5, 0.5, EDU.schoolWall, 0, 0, -0.12));
+  g.add(gable(0.96, 0.2, 0.56, EDU.schoolRoof, 0.5).translateZ(-0.12));
+  for (const y of [0.1, 0.32]) {
+    for (let i = 0; i < 5; i++) if (!(y < 0.2 && i === 2)) g.add(box(0.1, 0.1, 0.02, M.window, -0.34 + i * 0.17, y, 0.135));
+  }
+  g.add(box(0.14, 0.2, 0.02, M.door, 0, 0, 0.135));
+  g.add(at(cylinder(0.05, 0.05, 0.02, EDU.clock, 12, 0.42), 0, 0.14).rotateX(Math.PI / 2));
+  return g;
+}
+
+/** Srednja šola: a modern flat-roofed block with a band of windows and a bike rack. */
+function highschool() {
+  const g = new THREE.Group();
+  g.add(box(0.86, 0.62, 0.56, EDU.hsWall, 0, 0, -0.08));
+  g.add(box(0.9, 0.05, 0.6, EDU.hsRoof, 0, 0.62, -0.08));
+  for (const y of [0.1, 0.3, 0.48]) g.add(box(0.72, 0.1, 0.02, M.window, 0, y, 0.205));
+  g.add(box(0.16, 0.08, 0.02, EDU.hsRoof, 0.3, 0, 0.205));
+  for (let i = 0; i < 4; i++) g.add(box(0.015, 0.08, 0.1, EDU.hsRoof, -0.3 + i * 0.06, 0, 0.36));
+  return g;
+}
+
+/** Fakulteta: a neoclassical front with columns, a pediment and a lawn. */
+function faculty() {
+  const g = new THREE.Group();
+  const lawn = box(0.94, 0.012, 0.94, EDU.lawn);
+  lawn.castShadow = false;
+  g.add(lawn);
+  g.add(box(0.84, 0.56, 0.46, EDU.facWall, 0, 0, -0.18));
+  g.add(box(0.86, 0.06, 0.66, EDU.facRoof, 0, 0.56, -0.08));
+  g.add(gable(0.86, 0.16, 0.12, EDU.column, 0.62).translateZ(0.2));
+  g.add(box(0.72, 0.04, 0.2, EDU.column, 0, 0, 0.14));
+  for (let i = 0; i < 5; i++) g.add(at(cylinder(0.03, 0.03, 0.52, EDU.column, 8, 0.04), -0.3 + i * 0.15, 0.18));
+  g.add(box(0.14, 0.22, 0.02, M.door, 0, 0.04, 0.055));
+  return g;
+}
+
+const BUILDERS = { road, house, church, roundabout, firehouse, hall, inn, factory, flats, tower, clinic, police, shop, vineyard, cemetery, kindergarten, school, highschool, faculty };
 
 /** Returns a new Object3D for the given tile type, or null for grass. */
 /** Returns a new Object3D for the given tile type (with its upgrades), or null for grass. */
@@ -571,6 +662,46 @@ function decorate(g, type, upgrades) {
       }
       if (has('candles')) {
         for (let i = 0; i < 8; i++) g.add(box(0.025, 0.035, 0.025, PUB.candle, -0.35 + i * 0.1, 0.02, 0.32));
+      }
+      break;
+    case 'tower':
+      if (has('terrace')) {
+        // Railing around the roof.
+        for (const s of [-1, 1]) {
+          g.add(box(0.7, 0.06, 0.015, UP.metal, 0, 2.2, s * 0.34));
+          g.add(box(0.015, 0.06, 0.7, UP.metal, s * 0.34, 2.2, 0));
+        }
+        g.add(box(0.16, 0.08, 0.16, UP.flowerPink, 0.2, 2.2, 0.2));
+      }
+      if (has('caretaker')) {
+        g.add(box(0.16, 0.18, 0.14, WALLS[2], 0.38, 0, 0.42));
+        g.add(box(0.18, 0.02, 0.16, FLATS_ROOF, 0.38, 0.18, 0.42));
+      }
+      break;
+    case 'kindergarten':
+      if (has('sandbox')) {
+        const sand = box(0.22, 0.03, 0.22, M.pedestal, -0.32, 0, 0.34);
+        sand.castShadow = false;
+        g.add(sand);
+      }
+      if (has('lunch')) g.add(box(0.07, 0.14, 0.07, M.chimney, 0.08, 0.36, -0.2));
+      break;
+    case 'school':
+      if (has('schoolGym')) g.add(box(0.4, 0.3, 0.3, EDU.schoolWall, -0.26, 0, -0.38));
+      if (has('computers')) g.add(box(0.015, 0.22, 0.015, UP.metal, 0.3, 0.62, -0.12));
+      break;
+    case 'highschool':
+      if (has('dorm')) g.add(box(0.3, 0.4, 0.3, WALLS[3], -0.3, 0, -0.38));
+      if (has('matura')) {
+        g.add(box(0.02, 0.5, 0.02, UP.metal, 0.4, 0, 0.42));
+        g.add(box(0.14, 0.09, 0.01, UP.banner, 0.33, 0.4, 0.42));
+      }
+      break;
+    case 'faculty':
+      if (has('lab')) g.add(at(new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), UP.metal).translateY(0.62), 0.25, -0.2));
+      if (has('honorary')) {
+        g.add(box(0.08, 0.06, 0.08, M.pedestal, -0.36, 0, 0.38));
+        g.add(box(0.04, 0.12, 0.04, M.gold, -0.36, 0.06, 0.38));
       }
       break;
     case 'church':

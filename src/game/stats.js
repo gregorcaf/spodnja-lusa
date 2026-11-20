@@ -7,6 +7,7 @@ import { taxRate } from './taxes.js';
 import { upgradeMonthly } from './upgrades.js';
 import { households, population } from './population.js';
 import { harvestIncome } from './services.js';
+import { educationIncome } from './education.js';
 
 /** Mood score used for both the figure colour and mayor support. */
 export function moodScore(c, state) {
@@ -88,8 +89,9 @@ export function monthlyIncome(state) {
     rate,
     business,
     harvest: harvestIncome(state), // vineyards, end of September only
+    education: educationIncome(state, network), // educated households earn (and pay) more
     get total() {
-      return this.base + this.taxes + this.business + this.harvest;
+      return this.base + this.taxes + this.business + this.harvest + this.education;
     },
   };
 }

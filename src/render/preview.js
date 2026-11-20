@@ -32,6 +32,7 @@ export class Preview {
     );
     this.group.add(this.outline);
     this.current = null;
+    this.extra = []; // extra ghosts for drag-built stretches
     this.hide();
   }
 
@@ -75,8 +76,28 @@ export class Preview {
     for (const m of ghost.userData.meshes) m.material = mat;
   }
 
+  /** Ghosts for a whole stretch: tiles = [{ x, y, ok }]. */
+  showMany(tool, tiles) {
+    this.hide();
+    tiles.forEach((t, i) => {
+      if (!this.extra[i]) {
+        const g = this.ghostFor(tool).clone();
+        g.userData.meshes = [];
+        g.traverse((o) => o.isMesh && g.userData.meshes.push(o));
+        this.group.add(g);
+        this.extra[i] = g;
+      }
+      const g = this.extra[i];
+      g.visible = true;
+      g.position.copy(tileToWorld(t.x, t.y));
+      const mat = t.ok ? GHOST.ok : GHOST.bad;
+      for (const m of g.userData.meshes) m.material = mat;
+    });
+  }
+
   hide() {
     this.outline.visible = false;
     for (const g of this.ghosts.values()) g.visible = false;
+    for (const g of this.extra) g.visible = false;
   }
 }

@@ -32,6 +32,10 @@ export const UPGRADES = {
     { id: 'elevator', name: 'Dvigalo', desc: 'Končno. Upokojenci iz petega nadstropja so prvič po letu 2011 videli trgovino.', cost: 8000, effect: { districtHappy: 3 }, monthly: -150, decor: 'elevator' },
     { id: 'playground', name: 'Otroško igrišče', desc: 'Gugalnica, tobogan in klop za mame, ki opazujejo druge mame.', cost: 5000, effect: { districtHappy: 4 }, decor: 'playground' },
   ],
+  tower: [
+    { id: 'terrace', name: 'Razgledna terasa', desc: 'Pogled do Triglava. In v sosedova okna.', cost: 9000, effect: { districtHappy: 3, othersEnvy: 2 }, decor: 'terrace' },
+    { id: 'caretaker', name: 'Hišnik', desc: 'Popravi vse. Čez tri tedne.', cost: 4000, effect: { districtHappy: 3 }, monthly: -150, decor: 'booth' },
+  ],
   clinic: [
     { id: 'ambulance', name: 'Reševalno vozilo', desc: 'Prihod v 8 minutah. Po glavni cesti, če ni traktorja.', cost: 18000, effect: { happy: 3 }, monthly: -300, decor: 'ambulance' },
     { id: 'pharmacy', name: 'Lekarna', desc: 'Zdravila brez vožnje v mesto. Nasveti zastonj, tudi nezaželeni.', cost: 9000, effect: { districtHappy: 3 }, monthly: 400, decor: 'pharmacy' },
@@ -51,6 +55,22 @@ export const UPGRADES = {
   cemetery: [
     { id: 'chapel', name: 'Mrliška vežica', desc: 'Dostojno slovo. In parkirišče, ki ga je zmanjkalo že na otvoritvi.', cost: 9000, effect: { districtHappy: 3 }, monthly: -100, decor: 'chapel' },
     { id: 'candles', name: 'Sveče za vse svete', desc: 'Pokopališče ponoči sveti kot letališče. Tradicija je tradicija.', cost: 2000, effect: { happy: 2 }, decor: 'candles' },
+  ],
+  kindergarten: [
+    { id: 'sandbox', name: 'Peskovnik', desc: 'Pesek povsod. Tudi v čevljih staršev.', cost: 2000, effect: { districtHappy: 2 }, decor: 'sandbox' },
+    { id: 'lunch', name: 'Domača kuhinja', desc: 'Kosilo iz lokalnih sestavin. Lokalna je predvsem cena.', cost: 6000, effect: { districtHappy: 3, happy: 1 }, monthly: -150, decor: 'kitchen' },
+  ],
+  school: [
+    { id: 'schoolGym', name: 'Telovadnica', desc: 'Za šport, prireditve in volišče.', cost: 15000, effect: { districtHappy: 3, propaganda: 1 }, monthly: 200, decor: 'schoolGym' },
+    { id: 'computers', name: 'Računalniška učilnica', desc: 'Dvajset računalnikov. Dva delata.', cost: 8000, effect: { happy: 2 }, monthly: -100, decor: 'antenna' },
+  ],
+  highschool: [
+    { id: 'dorm', name: 'Dijaški dom', desc: 'Dijaki od drugod. In njihovi starši z denarnico.', cost: 20000, effect: { districtHappy: 2, othersEnvy: 2 }, monthly: 700, decor: 'dorm' },
+    { id: 'matura', name: 'Maturantska parada', desc: 'Četvorka na glavnem trgu. Promet stoji, babice jokajo.', cost: 4000, effect: { happy: 3 }, decor: 'flag' },
+  ],
+  faculty: [
+    { id: 'lab', name: 'Raziskovalni laboratorij', desc: 'Evropski projekti. Poročila so daljša od rezultatov.', cost: 30000, effect: { districtHappy: 2 }, monthly: 1500, decor: 'lab' },
+    { id: 'honorary', name: 'Častni doktorat županu', desc: 'Za izjemen prispevek k znanosti. Katerikoli.', cost: 5000, effect: { propaganda: 4, othersEnvy: 3, affair: 1 }, decor: 'statueSmall' },
   ],
   church: [
     { id: 'tower', name: 'Obnova zvonika', desc: 'Zvonik zasije. Župnik v pridigi omeni župana.', cost: 6000, effect: { happy: 3, propaganda: 2 }, decor: 'goldTower' },
